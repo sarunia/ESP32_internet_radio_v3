@@ -3048,16 +3048,27 @@ void playFromSelectedFolder()
   fileIndex = 0;
   while (true)
   {
-    File entry = root.openNextFile();
-    if (!entry) break;
-    String name = entry.name();
-    if (isAudioFile(name.c_str()))
-    {
-      files[filesCount] = String(folderNameString) + "/" + name;
-      filesCount++;
-    }
-    entry.close();
+      File entry = root.openNextFile();
+      if (!entry) break;
+
+      String name = entry.name();
+      if (isAudioFile(name.c_str()))
+      {
+          files[filesCount] = String(folderNameString) + "/" + name;
+
+          // Wydrukuj pełną ścieżkę i numer pliku
+          Serial.print("Dodano plik [");
+          Serial.print(filesCount + 1);
+          Serial.print("]: ");
+          Serial.println(files[filesCount]);
+
+          filesCount++;
+      }
+      entry.close();
   }
+
+  Serial.print("Łącznie znaleziono plików audio: ");
+  Serial.println(filesCount);
 
   // Jeśli brak plików, zamknij i wróć
   if (filesCount == 0)
@@ -3409,7 +3420,7 @@ void displayPlayer()
 
   int x = 0;
   int y = 25;
-  int lineHeight = 30;  // wysokość linii w pikselach
+  int lineHeight = 28;  // wysokość linii w pikselach
 
   canvas.setFont(&FreeSans12pt7b);
 
@@ -3424,6 +3435,7 @@ void displayPlayer()
   if (id3tag)
   {
     // Artysta
+    artistString = normalizePolish(artistString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Artysta: ");
@@ -3433,6 +3445,7 @@ void displayPlayer()
     y += lineHeight;
 
     // Tytuł
+    titleString = normalizePolish(titleString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Tytul: ");
@@ -3442,6 +3455,7 @@ void displayPlayer()
     y += lineHeight;
 
     // Album
+    albumString = normalizePolish(albumString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Album: ");
@@ -3453,13 +3467,14 @@ void displayPlayer()
     // Rok
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
-    canvas.print("Year: ");
+    canvas.print("Rok: ");
     canvas.setTextColor(COLOR_WHITE);
     canvas.print(fitTextToWidth(yearString, 480 - canvas.getCursorX()));
 
     y += lineHeight;
 
     // Folder
+    folderNameString = normalizePolish(folderNameString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Folder: ");
@@ -3469,6 +3484,7 @@ void displayPlayer()
     y += lineHeight;  // przejście do kolejnej linii
 
     // Plik
+    fileNameString = normalizePolish(fileNameString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Plik: ");
@@ -3483,24 +3499,24 @@ void displayPlayer()
     y += lineHeight;
 
     // Folder
+    folderNameString = normalizePolish(folderNameString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Folder: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(folderNameString, 480 - canvas.getCursorX()));
-
-    y += lineHeight;  // przejście do kolejnej linii
+    y += lineHeight;
+    printWrappedText(folderNameString, x, y, lineHeight, 480 - x, COLOR_WHITE);
+    y += ((folderNameString.length() / 20) + 1) * lineHeight; // przybliżone zwiększenie y
 
     // Plik
+    fileNameString = normalizePolish(fileNameString);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
     canvas.print("Plik: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(fileNameString, 480 - canvas.getCursorX()));
-
+    y += lineHeight;
+    printWrappedText(fileNameString, x, y, lineHeight, 480 - x, COLOR_WHITE);
   }
 
-      // --- Parametry audio (bitrate, sample rate, bits per sample) ---
+  // --- Parametry audio (bitrate, sample rate, bits per sample) ---
   String audioInfoDisplay = "";
   bitrateString.trim();      // Usuń białe znaki
   sampleRateString.trim();
@@ -3529,6 +3545,35 @@ void displayPlayer()
   // --- Wysyłanie całego canvasu na ekran TFT ---
   tft_pushCanvas(canvas);
 
+}
+
+// Funkcja dzieląca tekst na fragmenty mieszczące się w szerokości maxWidth
+void printWrappedText(String text, int x, int y, int lineHeight, int maxWidth, uint16_t color)
+{
+  canvas.setTextColor(color);
+  int start = 0;
+  while (start < text.length())
+  {
+    int end = start;
+    String line = "";
+    while (end < text.length())
+    {
+      line += text[end];
+      int16_t x1, y1;
+      uint16_t w, h;
+      canvas.getTextBounds(line, 0, 0, &x1, &y1, &w, &h);
+      if (w > maxWidth)
+      {
+        line.remove(line.length() - 1); // usuń ostatni znak, który nie mieści się
+        break;
+      }
+      end++;
+    }
+    canvas.setCursor(x, y);
+    canvas.print(line);
+    y += lineHeight;
+    start = end;
+  }
 }
 
 // Funkcja przycina tekst, aby zmieścił się w maxWidth pikseli
