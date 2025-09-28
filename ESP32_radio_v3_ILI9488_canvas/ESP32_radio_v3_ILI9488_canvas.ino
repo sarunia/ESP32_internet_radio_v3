@@ -128,8 +128,10 @@ int volumeArray[100];             // Wartości głośności dla 100 stacji w ka�
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 6;          // Maksymalna liczba widocznych linii na ekranie OLED
 
-unsigned long lastSwitchWeather = 0;
-unsigned long lastSwitchCalendar = 0;
+const int maxVisibleFolders = 6;  // Maksymalna liczba folderów widocznych na ekranie w danym momencie
+
+unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
+unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
 
 int messageIndex = 0;               // Indeks aktualnie wyświetlanej wiadomości
 int namedayLineIndex = 0;           // Indeks aktualnie wyświetlanej linii imienin
@@ -193,8 +195,14 @@ String bitrateString;                  // Informacja o bitrate aktualnie odtwarz
 String sampleRateString;               // Informacja o częstotliwości próbkowania (Hz)
 String bitsPerSampleString;            // Informacja o liczbie bitów na próbkę audio
 
-String artistString;                   // Nazwa wykonawcy (odczytana z metadanych)
-String titleString;                    // Tytuł utworu (odczytany z metadanych)
+String artistString;                   // Nazwa wykonawcy (odczytana z metadanych ID3)
+String titleString;                    // Tytuł utworu (odczytany z metadanych ID3)
+String albumString;                    // Nazwa albumu (odczytana z metadanych ID3)
+String yearString;                     // Rok wydania utworu (odczytany z metadanych ID3)
+
+unsigned long trackStartMillis = 0;    // Czas w milisekundach, kiedy rozpoczęto odtwarzanie bieżącego utworu
+String fileTime = "00h:00m:00s";       // Aktualny czas trwania odtwarzanego utworu w formacie hh:mm:ss
+
 
 String fileNameString;                 // Nazwa aktualnie odtwarzanego pliku
 String folderNameString;               // Nazwa folderu, w którym znajduje się plik
@@ -2085,7 +2093,8 @@ void displayRadio()
 
     // --- Nazwa stacji ---
     String mainName = stationName;
-    if (mainName.length() > 25) {
+    if (mainName.length() > 25)
+    {
       mainName = mainName.substring(0, 25); // Przytnij do max 25 znaków
     }
     mainName.trim(); // Usuń ewentualne spacje z początku i końca
@@ -2102,7 +2111,8 @@ void displayRadio()
 
     // --- Numer banku i numer stacji ---
     String bankInfo = "Bank " + String(bank_nr);
-    if (bank_nr < 10) bankInfo += " "; // Dodanie spacji dla wyrównania
+    if (bank_nr < 10)
+      bankInfo += " "; // Dodanie spacji dla wyrównania
     bankInfo += " Stacja " + String(previous_station_nr);
 
     canvas.setFont(&FreeMonoBold12pt7b);  // Czcionka dla informacji o banku i stacji
@@ -2142,7 +2152,7 @@ void displayRadio()
 }
 
 
-// Funkcja do przewijania w górę z poprawnym zawijaniem listy
+// Funkcja do przewijania w górę
 void scrollUp()
 {
   if (currentSelection > 0)
@@ -2178,10 +2188,10 @@ void scrollUp()
     firstVisibleLine = stationsCount - maxVisibleLines;
 
   // Debug
-  Serial.print("Scroll Up: currentSelection = ");
-  Serial.println(currentSelection);
-  Serial.print("Scroll Up: firstVisibleLine = ");
-  Serial.println(firstVisibleLine);
+  //Serial.print("Scroll Up: currentSelection = ");
+  //Serial.println(currentSelection);
+  //Serial.print("Scroll Up: firstVisibleLine = ");
+  //Serial.println(firstVisibleLine);
 }
 
 
@@ -2195,7 +2205,7 @@ void scrollDown()
     // Jeśli wyszliśmy poza dolną widoczną linię → przesuwamy okno
     if (currentSelection >= firstVisibleLine + maxVisibleLines)
     {
-        firstVisibleLine++;
+      firstVisibleLine++;
     }
   }
   else
@@ -2212,10 +2222,10 @@ void scrollDown()
     firstVisibleLine = stationsCount - maxVisibleLines;
 
   // Debug
-  Serial.print("Scroll Down: currentSelection = ");
-  Serial.println(currentSelection);
-  Serial.print("Scroll Down: firstVisibleLine = ");
-  Serial.println(firstVisibleLine);
+      Serial.print("Scroll Down: currentSelection = ");
+      Serial.println(currentSelection);
+      Serial.print("Scroll Down: firstVisibleLine = ");
+      Serial.println(firstVisibleLine);
 }
 
 // Funkcja zwracająca maksymalny możliwy wybór w zależności od opcji
@@ -2252,15 +2262,18 @@ void switchWeatherData()
     {
       String line1, line2;
 
-      if (cycle == 0) {
+      if (cycle == 0)
+      {
         line1 = tempStr;       // np. "Temperatura: 21.5 C"
         line2 = feels_likeStr; // np. "Odczuwalna: 22.0 C"
       }
-      else if (cycle == 1) {
+      else if (cycle == 1)
+      {
         line1 = windStr;       // np. "Wiatr: 3.5 m/s"
         line2 = windGustStr;   // np. "W porywach: 5.2 m/s"
       }
-      else if (cycle == 2) {
+      else if (cycle == 2)
+      {
         line1 = humidityStr;   // np. "Wilgotność: 60 %"
         line2 = pressureStr;   // np. "Ciśnienie: 1015 hPa"
       }
@@ -2294,7 +2307,6 @@ void switchWeatherData()
 }
 
 
-
 // --- Funkcja do przełączania karuzeli kalendarza ---
 void showCalendarCarousel()
 {
@@ -2316,11 +2328,13 @@ void showCalendarCarousel()
       msg = "Dzisiaj jest " + calendar + " r";
       messageIndex++;
     }
-    else if (messageIndex == 1) {
+    else if (messageIndex == 1)
+    {
       msg = "Wschod Slonca " + sunrise + "  Zachod Slonca " + sunset;
       messageIndex++;
     }
-    else if (messageIndex == 2) {
+    else if (messageIndex == 2)
+    {
       msg = "Dlugosc dnia " + dayLength;
       messageIndex++;
     }
@@ -2383,30 +2397,30 @@ void showCalendarCarousel()
 
 
 
-// Obsługa caalbacka info o audio
+// Obsługa callbacka info o audio
 void my_audio_info(Audio::msg_t m)
 {
   switch(m.e)
   {
     case Audio::evt_info:  
     {
-      String msg = String(m.msg);   // zamiana na String, aby używać indexOf
+      String msg = String(m.msg);   // zamiana na String
+      msg.trim(); // usuń spacje i \r\n
 
       // --- BitRate ---
       int bitrateIndex = msg.indexOf("BitRate:");
       if (bitrateIndex != -1)
       {
-        if (bitratePresent == false)
-        {
-          bitrateString = msg.substring(bitrateIndex + 8, msg.indexOf('\n', bitrateIndex));
-          bitratePresent = true; 
-        }
+        int endIndex = msg.indexOf('\n', bitrateIndex);
+        if (endIndex == -1) endIndex = msg.length();
+        bitrateString = msg.substring(bitrateIndex + 8, endIndex);
+        bitrateString.trim();
 
-        if (currentOption == PLAY_FILES)
+        if (currentOption == PLAY_FILES && audio.isRunning())
         {
-          //displayPlayer();
+          displayPlayer();
         }
-        if ((currentOption == INTERNET_RADIO) && (audio.isRunning()))
+        if (currentOption == INTERNET_RADIO && audio.isRunning())
         {
           displayRadio();
         }
@@ -2416,14 +2430,20 @@ void my_audio_info(Audio::msg_t m)
       int sampleRateIndex = msg.indexOf("SampleRate:");
       if (sampleRateIndex != -1)
       {
-        sampleRateString = msg.substring(sampleRateIndex + 11, msg.indexOf('\n', sampleRateIndex));
+        int endIndex = msg.indexOf('\n', sampleRateIndex);
+        if (endIndex == -1) endIndex = msg.length();
+        sampleRateString = msg.substring(sampleRateIndex + 11, endIndex);
+        sampleRateString.trim();
       }
 
       // --- BitsPerSample ---
       int bitsPerSampleIndex = msg.indexOf("BitsPerSample:");
       if (bitsPerSampleIndex != -1)
       {
-        bitsPerSampleString = msg.substring(bitsPerSampleIndex + 15, msg.indexOf('\n', bitsPerSampleIndex));
+        int endIndex = msg.indexOf('\n', bitsPerSampleIndex);
+        if (endIndex == -1) endIndex = msg.length();
+        bitsPerSampleString = msg.substring(bitsPerSampleIndex + 15, endIndex);
+        bitsPerSampleString.trim();
       }
 
       // --- Brak ID3 tagów ---
@@ -2464,16 +2484,12 @@ void my_audio_info(Audio::msg_t m)
       int unknowContent = msg.indexOf("unknown content found at:");
       if (unknowContent != -1)
       {
-        // Wyczyść obszar w canvas
+        audio.stopSong();
         canvas.fillRect(0, 35, 480, 220, COLOR_BLACK);
-
-        // Wyświetl komunikat informacyjny w canvas
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_PINK);
         canvas.setCursor(0, 70);
         canvas.print("Nieznana zawartosc linku");
-
-        // Wyślij canvas na ekran
         tft_pushCanvas(canvas);
       }
 
@@ -2481,45 +2497,146 @@ void my_audio_info(Audio::msg_t m)
       int connectTo = msg.indexOf("connect to:");
       if (connectTo != -1)
       {
-        // Wyczyść obszar w canvas
         canvas.fillRect(0, 35, 480, 220, COLOR_BLACK);
-
-        // Wyświetl komunikat informacyjny w canvas
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_PINK);
         canvas.setCursor(0, 70);
         canvas.print("Nawiazywanie polaczenia, czekaj...");
-
-        // Wyślij canvas na ekran
         tft_pushCanvas(canvas);
       }
 
+      // --- Reading file: ---
+      int readingFileIndex = msg.indexOf("Reading file:");
+      if (readingFileIndex != -1)
+      {
+        // reset parametrów audio dla nowego pliku
+        bitrateString = "";
+        sampleRateString = "";
+        bitsPerSampleString = "";
+        bitratePresent = false;
+
+        int startQuote = msg.indexOf('"', readingFileIndex);
+        int endQuote = msg.indexOf('"', startQuote + 1);
+        if (startQuote != -1 && endQuote != -1)
+        {
+          String fullPath = msg.substring(startQuote + 1, endQuote);
+          fullPath.trim();
+
+          // Rozdziel folder i plik
+          int lastSlash = fullPath.lastIndexOf('/');
+          if (lastSlash != -1)
+          {
+            folderNameString = fullPath.substring(0, lastSlash);
+            fileNameString = fullPath.substring(lastSlash + 1);
+          }
+          else
+          {
+            folderNameString = "/";
+            fileNameString = fullPath;
+          }
+
+          // Usuń początkowy '/' z folderu
+          if (folderNameString.startsWith("/"))
+          {
+            folderNameString = folderNameString.substring(1);
+          }
+
+          // Zastąp pozostałe '/' w folderze spacją
+          folderNameString.replace("/", " ");
+
+          Serial.println("Wybrany folder: " + folderNameString);
+          Serial.println("Wybrany plik: " + fileNameString);
+
+          if ((currentOption == PLAY_FILES) && audio.isRunning())
+          {
+            displayPlayer();
+          }
+        }
+      }
 
       // --- Debug ---
       Serial.printf("info: ....... %s\n", m.msg);
-      
+    }
+      break;
+
+
+    case Audio::evt_eof:
+    {
+      Serial.printf("end of file:  %s\n", m.msg);
+      fileEnd = true;
+    }
+      break;
+
+    case Audio::evt_bitrate:        Serial.printf("bitrate: .... %s\n", m.msg); break; // icy-bitrate or bitrate from metadata
+    case Audio::evt_icyurl:         Serial.printf("icy URL: .... %s\n", m.msg); break;
+    case Audio::evt_id3data:
+    {
+      Serial.printf("ID3 data: ... %s\n", m.msg);
+      String msg = String(m.msg);
+      msg.trim(); // usuń spacje i \r\n
+
+      // --- ARTYSTA ---
+      if (msg.startsWith("Artist:") || msg.startsWith("Artist=") || msg.startsWith("ARTIST="))
+      {
+        int sep = msg.indexOf(':');
+        if (sep == -1) sep = msg.indexOf('=');
+        artistString = msg.substring(sep + 1);
+        artistString.trim();
+        id3tag = true;
+        Serial.println("Znalazłem artystę: " + artistString);
+      }
+
+      // --- TYTUŁ ---
+      if (msg.startsWith("Title:") || msg.startsWith("Title=") || msg.startsWith("TITLE="))
+      {
+        int sep = msg.indexOf(':');
+        if (sep == -1) sep = msg.indexOf('=');
+        titleString = msg.substring(sep + 1);
+        titleString.trim();
+        id3tag = true;
+        Serial.println("Znalazłem tytuł: " + titleString);
+      }
+
+      // --- ALBUM ---
+      if (msg.startsWith("Album:") || msg.startsWith("Album=") || msg.startsWith("ALBUM="))
+      {
+        int sep = msg.indexOf(':');
+        if (sep == -1) sep = msg.indexOf('=');
+        albumString = msg.substring(sep + 1);
+        albumString.trim();
+        id3tag = true;
+        Serial.println("Znalazłem album: " + albumString);
+      }
+
+      // --- YEAR ---
+      if (msg.startsWith("Year:") || msg.startsWith("Year="))
+      {
+        int sep = msg.indexOf(':');
+        if (sep == -1) sep = msg.indexOf('=');
+        yearString = msg.substring(sep + 1);
+        yearString.trim();
+        id3tag = true;
+        Serial.println("Znalazłem rok: " + yearString);
+      }
     }
     break;
 
-    case Audio::evt_eof:            Serial.printf("end of file:  %s\n", m.msg); break;
-    case Audio::evt_bitrate:        Serial.printf("bitrate: .... %s\n", m.msg); break; // icy-bitrate or bitrate from metadata
-    case Audio::evt_icyurl:         Serial.printf("icy URL: .... %s\n", m.msg); break;
-    case Audio::evt_id3data:        Serial.printf("ID3 data: ... %s\n", m.msg); break; // id3-data or metadata
+
     case Audio::evt_lasthost:       Serial.printf("last URL: ... %s\n", m.msg); break;
     case Audio::evt_name:           Serial.printf("station name: %s\n", m.msg); break; // station name or icy-name
     case Audio::evt_streamtitle:
-    {
-      // Zapisz tytuł stacji/utworu
-      stationInfo = String(m.msg);
-      stationInfo.trim();
+      {
+        // Zapisz tytuł stacji/utworu
+        stationInfo = String(m.msg);
+        stationInfo.trim();
 
-      // Odśwież pełny ekran radia
-      displayRadio();
+        // Odśwież pełny ekran radia
+        displayRadio();
 
-      // Debug
-      Serial.printf("stream title: %s\n", m.msg);
-    }
-    break;
+        // Debug
+        Serial.printf("stream title: %s\n", m.msg);
+      }
+      break;
     case Audio::evt_icylogo:        Serial.printf("icy logo: ... %s\n", m.msg); break;
     case Audio::evt_icydescription: Serial.printf("icy descr: .. %s\n", m.msg); break;
     case Audio::evt_image: for(int i = 0; i < m.vec.size(); i += 2){
@@ -2528,6 +2645,34 @@ void my_audio_info(Audio::msg_t m)
     case Audio::evt_log   :         Serial.printf("audio_logs:   %s\n", m.msg); break;
     default:                        Serial.printf("message:..... %s\n", m.msg); break;
   }
+}
+
+
+String extractID3Field(const String &msg, const String &fieldName)
+{
+  // Szukaj "ID3 data: ... fieldName:" i "ID3 data: ... fieldName="
+  String key1 = "ID3 data: ... " + fieldName + ":";
+  String key2 = "ID3 data: ... " + fieldName + "=";
+
+  int index = msg.indexOf(key1);
+  String keyUsed = key1;
+  if (index == -1)
+  {
+    index = msg.indexOf(key2);
+    keyUsed = key2;
+  }
+
+  if (index != -1)
+  {
+    int start = index + keyUsed.length();
+    int lineEnd = msg.indexOf('\n', start);
+    if (lineEnd == -1) lineEnd = msg.length();
+    String value = msg.substring(start, lineEnd);
+    value.trim();
+    return value;
+  }
+
+  return ""; // brak wartości
 }
 
 
@@ -2560,8 +2705,847 @@ void drawClock()
     canvas.print("---- Brak strumienia audio ! ----");
   }
 
+  // Licznik odtwarzanego pliku
+  if (currentOption == PLAY_FILES && audio.isRunning() && isPlaying == true)
+  {
+    unsigned long elapsed = millis() - trackStartMillis;
+    int seconds = (elapsed / 1000) % 60;
+    int minutes = (elapsed / 60000) % 60;
+    int hours   = (elapsed / 3600000);
+
+    char buffer[20];
+    snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+    fileTime = String(buffer);
+
+    // miejsce na licznik utworu
+    canvas.fillRect(0, 285, 230, 35, COLOR_BLACK);
+    canvas.setFont(&FreeMonoBold12pt7b);
+    canvas.setTextColor(COLOR_CYAN);
+    canvas.setCursor(0, 310);
+    canvas.print(fileTime);
+  }
+
   tft_pushCanvas(canvas);
 }
+
+
+void displayMenu()
+{
+  //menuEnable = true;
+
+  // Wyczyść obszar w canvas
+  canvas.fillRect(0, 0, 480, 160, COLOR_BLACK);
+
+  // nagłówek MENU
+  canvas.setFont(&FreeSansBold18pt7b);
+  canvas.setTextColor(COLOR_CYAN);  
+  canvas.setCursor(30, 30);
+  canvas.print("Wybierz zrodlo dzwieku:");
+
+  switch (currentOption)
+  {
+    case PLAY_FILES:
+      canvas.setTextColor(COLOR_YELLOW);
+      canvas.setCursor(0, 80);
+      canvas.print(">>  Odtwarzacz plikow");
+
+      canvas.setTextColor(COLOR_WHITE);
+      canvas.setCursor(0, 120);
+      canvas.print("      Radio internetowe");
+      break;
+
+    case INTERNET_RADIO:
+      canvas.setTextColor(COLOR_WHITE);
+      canvas.setCursor(0, 80);
+      canvas.print("      Odtwarzacz plikow");
+
+      canvas.setTextColor(COLOR_YELLOW);
+      canvas.setCursor(0, 120);
+      canvas.print(">>  Radio internetowe");
+      break;
+  }
+
+  // wyślij na ekran
+  tft_pushCanvas(canvas);
+}
+
+
+// Funkcja do wylistowania katalogów z karty 
+void listDirectories(const char *dirname)
+{
+  File root = SD.open(dirname);
+  if (!root)
+  {
+    Serial.println("Błąd otwarcia katalogu!");
+    Serial.println(dirname);
+    return;
+  }
+  printDirectoriesAndSavePaths(root, 0, ""); // Początkowo pełna ścieżka jest pusta
+  Serial.println("Wylistowano katalogi z karty SD");
+  root.close();
+  //scrollDown();
+  displayFolders();
+}
+
+
+void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
+{
+  folderCount = 0;
+
+  // Przejrzyj wszystkie pliki w katalogu
+  while (true)
+  {
+    File entry = dir.openNextFile();
+    
+    if (!entry)
+    {
+      break; // Koniec plików
+    }
+
+    if (entry.isDirectory())
+    {
+      // Utwórz pełną ścieżkę
+      String path = currentPath + "/" + entry.name();
+      
+      // Sprawdź, czy katalog to nie "System Volume Information"
+      if (path != "/System Volume Information")
+      {
+        directories[folderCount] = path; // Zapisz ścieżkę do tablicy
+        folderCount++; // Zwiększ licznik katalogów
+      }
+    }
+
+    entry.close();
+  }
+
+  // Sortowanie katalogów za pomocą funkcji porównującej
+  for (int i = 0; i < folderCount - 1; i++)
+  {
+    for (int j = i + 1; j < folderCount; j++)
+    {
+      if (compareStringsWithNumbers(directories[i], directories[j]) > 0)
+      {
+        String temp = directories[i];
+        directories[i] = directories[j];
+        directories[j] = temp;
+      }
+    }
+  }
+
+  // Wydrukuj na serial terminalu alfabetycznie posortowane katalogi
+  for (int i = 0; i < folderCount; i++)
+  {
+    Serial.print(i + 1); // Drukuje alfabetyczny numer katalogu
+    Serial.print(": ");
+    Serial.println(directories[i].substring(1)); // Drukuje ścieżkę bez pierwszego znaku
+  }
+
+  // Wyświetl na ekranie, jeśli to nie System Volume Information
+  for (int i = 0; i < folderCount; i++)
+  {
+    String fullPath = directories[i];
+  }
+}
+
+
+// Funkcja do porównywania ciągów uwzględniająca liczby
+int compareStringsWithNumbers(const String &a, const String &b)
+{
+  int i = 0, j = 0;
+  
+  while (i < a.length() && j < b.length())
+  {
+    // Wyciągnij kolejne znaki
+    char charA = a[i];
+    char charB = b[j];
+    
+    // Sprawdź, czy mamy do czynienia z liczbą w obu ciągach
+    if (isdigit(charA) && isdigit(charB))
+    {
+      // Wyciągnij pełne liczby
+      String numA, numB;
+      while (i < a.length() && isdigit(a[i]))
+      {
+        numA += a[i++];
+      }
+      while (j < b.length() && isdigit(b[j]))
+      {
+        numB += b[j++];
+      }
+
+      // Porównaj liczby jako liczby (nie tekstowo)
+      int intA = numA.toInt();
+      int intB = numB.toInt();
+      
+      if (intA != intB)
+      {
+        return intA - intB;
+      }
+    } 
+    else
+    {
+      // Porównaj inne znaki
+      if (charA != charB)
+      {
+        return charA - charB;
+      }
+      i++;
+      j++;
+    }
+  }
+  
+  // Jeżeli wszystko jest równe, porównaj długości
+  return a.length() - b.length();
+}
+
+// Funkcja do wyświetlania folderów na ekranie TFT (canvas) z uwzględnieniem zaznaczenia
+void displayFolders()
+{
+  // Nagłówek
+  String text = "Odtwarzacz plikow - lista katalogow";
+
+  canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
+
+  // Bezpieczny indeks do wyświetlenia
+  int displayIndex = 0;
+  if (folderCount > 0)
+  {
+    displayIndex = constrain(currentSelection, 0, folderCount - 1);
+  }
+
+  // Nagłówek (pokazujemy currentSelection, nie folderIndex)
+  canvas.setFont(&FreeSans12pt7b);
+  canvas.setTextColor(COLOR_CYAN);
+  canvas.setCursor(0, 25);
+  canvas.print(text + " " + String(displayIndex + 1) + "/" + String(folderCount));
+
+  int displayRow = 0;  
+  int rowHeight = 30;   // odstęp pionowy między wpisami
+
+  // Wyświetlanie maksymalnie 6 katalogów
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 6, folderCount); i++)
+  {
+    String fullPath = directories[i];
+
+    if (fullPath != "/System Volume Information")
+    {
+      // Nazwa skrócona (bez aktualnego katalogu "/")
+      String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 42);
+
+      int y = 65 + displayRow * rowHeight;
+
+      // Podświetlenie zaznaczonego katalogu
+      if (i == currentSelection)
+      {
+        canvas.fillRect(0, y - 20, 480, rowHeight, COLOR_ORANGE);
+        canvas.setTextColor(COLOR_BLACK);
+      }
+      else
+      {
+        canvas.setTextColor(COLOR_WHITE);
+      }
+
+      canvas.setCursor(0, y);
+      canvas.print(displayedPath);
+
+      displayRow++;
+    }
+  }
+
+  // Wyślij całość na ekran
+  tft_pushCanvas(canvas);
+  
+  Serial.printf("displayFolders: folderCount=%d currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
+              folderCount, currentSelection, firstVisibleLine, folderIndex);
+
+}
+
+
+// Przewijanie listy folderów w górę
+void scrollUpFolders()
+{
+  if (folderCount <= 0) return;
+
+  if (currentSelection > 0)
+  {
+    currentSelection--;
+    if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
+  }
+  else
+  {
+    currentSelection = folderCount - 1;
+    if (folderCount > maxVisibleFolders) firstVisibleLine = folderCount - maxVisibleFolders;
+    else firstVisibleLine = 0;
+  }
+
+  // korekty granic
+  if (firstVisibleLine < 0)
+    firstVisibleLine = 0;
+  if (firstVisibleLine > max(0, folderCount - maxVisibleFolders))
+    firstVisibleLine = max(0, folderCount - maxVisibleFolders);
+
+  // Zaktualizuj folderIndex, który może być używany w innych częściach programu
+  folderIndex = currentSelection;
+
+  // Debug (opcjonalnie)
+  Serial.printf("scrollUpFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
+                currentSelection, firstVisibleLine, folderIndex);
+
+  displayFolders();
+}
+
+
+void scrollDownFolders()
+{
+  if (folderCount <= 0) return;
+
+  if (currentSelection < folderCount - 1)
+  {
+    currentSelection++;
+    if (currentSelection >= firstVisibleLine + maxVisibleFolders)
+      firstVisibleLine++;
+  }
+  else
+  {
+    currentSelection = 0;
+    firstVisibleLine = 0;
+  }
+
+  if (firstVisibleLine < 0)
+    firstVisibleLine = 0;
+  if (firstVisibleLine > max(0, folderCount - maxVisibleFolders))
+    firstVisibleLine = max(0, folderCount - maxVisibleFolders);
+
+  folderIndex = currentSelection;
+
+  Serial.printf("scrollDownFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
+                currentSelection, firstVisibleLine, folderIndex);
+
+  displayFolders();
+}
+
+
+
+// Funkcja do odtwarzania plików audio z wybranego folderu
+void playFromSelectedFolder()
+{
+  // Ustawienia startowe
+  fileSelection = false;
+  folderSelection = false;
+  folderNameString = directories[folderIndex];
+  Serial.println("Odtwarzanie plików z wybranego folderu: " + folderNameString);
+
+  // Otwórz folder
+  File root = SD.open(folderNameString);
+  if (!root)
+  {
+    Serial.println("Błąd otwarcia katalogu!");
+    return;
+  }
+
+  // Zbuduj listę plików audio w folderze
+  filesCount = 0;
+  fileIndex = 0;
+  while (true)
+  {
+    File entry = root.openNextFile();
+    if (!entry) break;
+    String name = entry.name();
+    if (isAudioFile(name.c_str()))
+    {
+      files[filesCount] = String(folderNameString) + "/" + name;
+      filesCount++;
+    }
+    entry.close();
+  }
+
+  // Jeśli brak plików, zamknij i wróć
+  if (filesCount == 0)
+  {
+    Serial.println("Brak plików audio w folderze: " + folderNameString);
+    root.close();
+    return;
+  }
+
+  // Przygotuj katalog do odczytu od początku (używane przy rewindingu)
+  root.rewindDirectory();
+
+  bool playNextFolder = false;   // flaga: przejście do następnego folderu
+  bool menuRequested = false;    // flaga: żądanie wyjścia do menu (przycisk MENU)
+  bool stopAll = false;          // ewentualne dodatkowe wyjście
+
+  // Główna pętla odtwarzania plików w folderze
+  while (fileIndex < filesCount && !playNextFolder && !menuRequested && !stopAll)
+  {
+    String fullPath = files[fileIndex];
+    Serial.print("Odtwarzanie pliku ");
+    Serial.print(fileIndex + 1);
+    Serial.print("/");
+    Serial.println(filesCount);
+    Serial.println(fullPath);
+
+    // Start odtwarzania
+    audio.connecttoFS(SD, fullPath.c_str());
+    // Zerowanie poprzednich tagów ID3
+    artistString = "";
+    titleString = "";
+    albumString = "";
+    yearString = "";
+    id3tag = false;  // Flaga oznaczająca, że jeszcze nie mamy danych ID3
+
+    trackStartMillis = millis();
+    fileTime = "00h:00m:00s";
+    isPlaying = true;
+    previous_fileIndex = fileIndex;
+    previous_folderIndex = folderIndex;
+
+    displayPlayer();
+
+    // Pętla oczekiwania na koniec pliku / sterowanie z pilota
+    while (isPlaying && !menuRequested && !stopAll)
+    {
+      audio.loop();
+      processIRCode();              // odczyt flag z pilota
+      volumeSetFromRemote();        // regulacja głośności z pilota
+      vTaskDelay(1);
+
+      // Aktualizacja zegara / czasu utworu co sekundę
+      if (updateClockFlag)
+      {
+        updateClockFlag = false;
+        drawClock();
+      }
+      // Aktualizacja czasu trwania pliku (liczony od startu trackStartMillis)
+      if (currentOption == PLAY_FILES)
+      {
+        unsigned long elapsed = (millis() - trackStartMillis) / 1000; // sekundy
+        unsigned int h = elapsed / 3600;
+        unsigned int m = (elapsed % 3600) / 60;
+        unsigned int s = elapsed % 60;
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%02dh:%02dm:%02ds", h, m, s);
+        fileTime = String(buf);
+      }
+
+      // Wyjście do MENU (przycisk MODE)
+      if (IRmenuButton)
+      {
+        IRmenuButton = false;
+        menuRequested = true;
+        Serial.println("MENU requested - wychodzę z playera");
+        audio.stopSong();
+        isPlaying = false;
+        break;
+      }
+
+      // Następny plik (pilot lub koniec pliku)
+      if (playNextFile || IRrightArrow || fileEnd)
+      {
+        IRrightArrow = false;
+        playNextFile = false;
+        fileEnd = false;
+        audio.stopSong();
+        isPlaying = false;
+        fileIndex++;
+        if (fileIndex >= filesCount)
+        {
+          Serial.println("To jest ostatni plik w folderze - przechodzę do następnego folderu");
+          playNextFolder = true;
+        }
+        else
+        {
+          // normalne przejście do następnego pliku w pętli
+        }
+        break; // wyjście z wewnętrznej pętli, kontynuacja w zewnętrznej
+      }
+
+      // Poprzedni plik
+      if (playPreviousFile || IRleftArrow)
+      {
+        IRleftArrow = false;
+        playPreviousFile = false;
+        audio.stopSong();
+        isPlaying = false;
+        if (fileIndex > 0) fileIndex--;
+        else fileIndex = 0;
+        break;
+      }
+
+      // Przewijanie folderów (FAV+/FAV- użyte w trybie PLAY_FILES jako scroll folderów)
+      if (IRbankDown)
+      {
+        IRbankDown = false;
+        folderSelection = true;
+        scrollDownFolders();
+        folderIndex = currentSelection;
+        displayFolders();
+      }
+      if (IRbankUp)
+      {
+        IRbankUp = false;
+        folderSelection = true;
+        scrollUpFolders();
+        folderIndex = currentSelection;
+        displayFolders();
+      }
+
+      // Przewijanie plików
+      if (IRdownArrow)
+      {
+        IRdownArrow = false;
+        fileSelection = true;
+        scrollDownFiles();
+        fileIndex = currentSelection;
+        displayFiles();
+      }
+      if (IRupArrow)
+      {
+        IRupArrow = false;
+        fileSelection = true;
+        scrollUpFiles();
+        fileIndex = currentSelection;
+        displayFiles();
+      }
+
+      // Zatwierdzenie wyboru folderu - wejście do nowego folderu (użytkownik chce od razu załadować pliki)
+      if (IRokButton && folderSelection)
+      {
+        IRokButton = false;
+        folderSelection = false;
+        audio.stopSong();
+        isPlaying = false;
+        playNextFolder = true;
+        break;
+      }
+
+      if (IRpauseResume)
+      {
+        //togglePauseResume();
+        IRpauseResume = false;
+      }
+      if (IRmuteTrigger)
+      {
+        //toggleMute();
+        IRmuteTrigger = false;
+      }
+
+    } // koniec while(isPlaying)
+
+    // jeśli menu został wywołany wewnątrz, przerwij odtwarzanie i wyjdź
+    if (menuRequested)
+    {
+      // Zamknij katalog i pokaż menu (przejście do wyboru źródła)
+      root.close();
+      menuEnable = true;
+      displayActive = true;
+      displayStartTime = millis();
+      displayMenu();
+      return;          // Wyjście z funkcji playFromSelectedFolder
+    }
+
+    // Jeśli ustawiono playNextFolder -> ustaw indeks folderu i powtórz
+    if (playNextFolder)
+    {
+      folderIndex++;
+      if (folderIndex >= folderCount)
+      {
+        Serial.println("To był ostatni folder.");
+        break;
+      }
+      fileIndex = 0;
+
+      root.close();
+      playFromSelectedFolder();
+      return;
+    }
+
+
+  }
+
+  // Zamknij katalog przy normalnym wyjściu
+  root.close();
+
+  Serial.println("Wyjście z playFromSelectedFolder()");
+}
+
+
+void playFile()
+{
+  // Pobierz ścieżkę pliku z tablicy
+  String fullPath = files[fileIndex];
+
+  // Odtwórz tylko w przypadku, gdy to jest plik audio
+  if (isAudioFile(fullPath.c_str()))
+  {
+    audio.connecttoFS(SD, fullPath.c_str());
+    // Zerowanie poprzednich tagów ID3
+    artistString = "";
+    titleString = "";
+    albumString = "";
+    yearString = "";
+    id3tag = false;  // Flaga oznaczająca, że jeszcze nie mamy danych ID3
+
+    trackStartMillis = millis();
+    fileTime = "00h:00m:00s";
+    isPlaying = true;
+    Serial.print("Odtwarzanie pliku: ");
+    Serial.print(fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
+    Serial.print("/");
+    Serial.print(filesCount); // Łączna liczba plików w folderze
+    Serial.print(" - ");
+    Serial.println(fullPath); // Pełna ścieżka pliku
+
+    // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
+    int lastSlashIndex = fullPath.lastIndexOf('/');
+    if (lastSlashIndex != -1)
+    {
+      fileNameString = fullPath.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
+    }
+  }
+}
+
+
+
+// Przewijanie listy plików w dół
+void scrollDownFiles()
+{
+  fileIndex++;
+  if (fileIndex >= filesCount) 
+  {
+    fileIndex = 0; // wróć na początek
+  }
+  Serial.print("Numer pliku do przodu: ");
+  Serial.println(fileIndex);
+
+  currentSelection = fileIndex;
+  if (currentSelection >= firstVisibleLine + 5) 
+  {
+    firstVisibleLine++;
+  }
+
+  displayFiles();
+}
+
+// Przewijanie listy plików w górę
+void scrollUpFiles()
+{
+  fileIndex--;
+  if (fileIndex < 0) 
+  {
+    fileIndex = filesCount - 1; // przejdź na ostatni
+  }
+  Serial.print("Numer pliku do tyłu: ");
+  Serial.println(fileIndex);
+
+  currentSelection = fileIndex;
+  if (currentSelection < firstVisibleLine) 
+  {
+    firstVisibleLine--;
+    if (firstVisibleLine < 0) firstVisibleLine = 0;
+  }
+
+  displayFiles();
+}
+
+// Wyświetlanie przewijalnej listy plików z podświetleniem
+void displayFiles()
+{
+  // Nagłówek
+  String text = "Odtwarzacz plikow - lista plikow";
+  canvas.fillRect(0, 0, 480, 160, COLOR_BLACK);
+  canvas.setFont(&FreeSans12pt7b);
+  canvas.setTextColor(COLOR_CYAN);
+  canvas.setCursor(0, 25);
+  canvas.print(text + " " + String(fileIndex + 1) + "/" + String(filesCount));
+
+  // Bieżący folder
+  canvas.setTextColor(COLOR_YELLOW);
+  canvas.setCursor(0, 45);
+  canvas.print(currentDirectory);
+
+  int displayRow = 0;
+  int rowHeight = 25;
+
+  // Wyświetlanie plików
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + 5, filesCount); i++)
+  {
+    String fileNameDisplay = files[i];
+
+    // Wytnij samą nazwę pliku (bez ścieżki)
+    int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
+    if (lastSlashIndex != -1) 
+    {
+      fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
+    }
+
+    int y = 80 + displayRow * rowHeight - 5; // -5 pikseli przesunięcia w górę
+
+    // Podświetlenie wybranego pliku
+    if (i == currentSelection)
+    {
+      canvas.fillRect(0, y - 18, 480, rowHeight, COLOR_ORANGE);
+      canvas.setTextColor(COLOR_BLACK);
+    }
+    else
+    {
+      canvas.setTextColor(COLOR_WHITE);
+    }
+
+    canvas.setCursor(0, y);
+    canvas.print(fileNameDisplay);
+
+    displayRow++;
+  }
+
+  tft_pushCanvas(canvas);
+}
+
+
+
+void displayPlayer()
+{
+  // --- Czyszczenie całego ekranu przed rysowaniem nowej zawartości ---
+  canvas.fillScreen(COLOR_BLACK);
+
+  int x = 0;
+  int y = 25;
+  int lineHeight = 30;  // wysokość linii w pikselach
+
+  canvas.setFont(&FreeSans12pt7b);
+
+  // Nagłówek pliku/folderu
+  canvas.setTextColor(COLOR_CYAN);
+  String header = "   Odtwarzanie pliku " + String(fileIndex + 1) + "/" + String(filesCount) +
+                  " folder " + String(folderIndex + 1) + "/" + String(folderCount);
+  canvas.setCursor(x, y);
+  canvas.print(fitTextToWidth(header, 480));
+  y += lineHeight;
+
+  if (id3tag)
+  {
+    // Artysta
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Artysta: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(artistString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;
+
+    // Tytuł
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Tytul: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(titleString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;
+
+    // Album
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Album: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(albumString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;
+
+    // Rok
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Year: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(yearString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;
+
+    // Folder
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Folder: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(folderNameString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;  // przejście do kolejnej linii
+
+    // Plik
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Plik: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(fileNameString, 480 - canvas.getCursorX()));
+  }
+  else
+  {
+    canvas.setTextColor(COLOR_RED);
+    canvas.setCursor(x, y);
+    canvas.print("Brak danych ID3 utworu");
+    y += lineHeight;
+
+    // Folder
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Folder: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(folderNameString, 480 - canvas.getCursorX()));
+
+    y += lineHeight;  // przejście do kolejnej linii
+
+    // Plik
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(x, y);
+    canvas.print("Plik: ");
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.print(fitTextToWidth(fileNameString, 480 - canvas.getCursorX()));
+
+  }
+
+      // --- Parametry audio (bitrate, sample rate, bits per sample) ---
+  String audioInfoDisplay = "";
+  bitrateString.trim();      // Usuń białe znaki
+  sampleRateString.trim();
+  bitsPerSampleString.trim();
+
+  if (bitrateString.length() > 0)  audioInfoDisplay += bitrateString + " b/s   ";
+  if (sampleRateString.length() > 0)  audioInfoDisplay += sampleRateString + " Hz    ";
+  if (bitsPerSampleString.length() > 0)  audioInfoDisplay += bitsPerSampleString + " bit";
+
+  canvas.setFont(&FreeMonoBold12pt7b);  // Czcionka dla parametrów audio
+  canvas.setTextColor(COLOR_GREEN);    // Kolor tekstu
+  canvas.setCursor(5, 250);             // Pozycja tekstu powyżej głośności
+  canvas.print(audioInfoDisplay);       // Wyświetlenie parametrów audio
+
+  // --- Wyświetlenie głośności ---
+  volumeDisplay = "VOL " + String(volumeValue);
+  canvas.setTextColor(COLOR_WHITE);     // Kolor dla głośności
+  canvas.setCursor(5, 280);             // Pozycja tekstu
+  canvas.print(volumeDisplay);          // Wyświetlenie głośności
+
+  // --- Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.) ---
+  canvas.setTextColor(COLOR_TURQUOISE); // Kolor tekstu
+  canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
+  canvas.print(fileType);               // Wyświetlenie typu pliku
+
+  // --- Wysyłanie całego canvasu na ekran TFT ---
+  tft_pushCanvas(canvas);
+
+}
+
+// Funkcja przycina tekst, aby zmieścił się w maxWidth pikseli
+String fitTextToWidth(String text, int maxWidth)
+{
+  int16_t x1, y1;
+  uint16_t w, h;
+
+  for (int i = text.length(); i > 0; i--)
+  {
+    String sub = text.substring(0, i);
+    canvas.getTextBounds(sub.c_str(), 0, 0, &x1, &y1, &w, &h);
+    if (w <= maxWidth) return sub;
+  }
+  return ""; // jeśli nic się nie mieści, zwracamy pusty string
+}
+
 
 
 /*-------------------------------------------------------GLÓWNY SETUP PROGRAMU----------------------------------------------------------*/
@@ -2718,66 +3702,143 @@ void loop()
   {
     IRokButton = false;
     displayActive = false;
-    audio.stopSong();
-    if (bankSwitch == true)
+    //audio.stopSong();
+    if (currentOption == INTERNET_RADIO)
     {
-      bankSwitch = false;
-      canvas.fillRect(0, 285, 240, 35, COLOR_BLACK);
-      canvas.setFont(&FreeMonoBold12pt7b);
-      canvas.setTextColor(COLOR_RED);
-      canvas.setCursor(0, 310);
-      canvas.print("Pobieram stacje");
-      tft_pushCanvas(canvas);
-      currentSelection = 0;
-      firstVisibleLine = 0;
-      station_nr = 1;
-      fetchStationsFromServer();
+      if (bankSwitch == true)
+      {
+        bankSwitch = false;
+        canvas.fillRect(0, 285, 240, 35, COLOR_BLACK);
+        canvas.setFont(&FreeMonoBold12pt7b);
+        canvas.setTextColor(COLOR_RED);
+        canvas.setCursor(0, 310);
+        canvas.print("Pobieram stacje");
+        tft_pushCanvas(canvas);
+        currentSelection = 0;
+        firstVisibleLine = 0;
+        station_nr = 1;
+        fetchStationsFromServer();
+      }
+
+      changeStation();
+    }
+    
+    if (currentOption == PLAY_FILES)
+    {
+      // --- Pierwsze wejście: wczytanie folderów z SD ---
+      if (!displayActive && !folderSelection)
+      {
+        displayActive = true;
+
+        // Próba inicjalizacji karty SD
+        if (!SD.begin(SD_CS))
+        {
+          Serial.println("Błąd inicjalizacji karty SD!");
+          return;  // Przerwij jeśli SD nie jest gotowe
+        }
+
+        // Reset pozycji i indeksów folderów i plików
+        folderIndex = 0;
+        currentSelection = 0;
+        firstVisibleLine = 0;
+
+        // Wyczyść obszar w canvas
+        canvas.fillRect(0, 0, 480, 225, COLOR_BLACK);
+
+        // nagłówek MENU
+        canvas.setFont(&FreeSans12pt7b);
+        canvas.setTextColor(COLOR_CYAN);
+        canvas.setCursor(0, 25);
+        canvas.print("Ladowanie folderow z karty SD, czekaj...");
+        tft_pushCanvas(canvas);
+        audio.stopSong();
+        listDirectories("/");        // Odczyt folderów z katalogu głównego
+        folderSelection = true;      // Teraz jesteśmy w trybie wyboru folderu
+        Serial.println("Lista folderów gotowa, wybierz folder i zatwierdź OK");
+      }
+      else
+      {
+        // --- Drugie OK: potwierdzenie wyboru folderu i start odtwarzania ---
+        if (folderSelection == true)
+        {
+          folderSelection = false;   // wyłącz tryb wyboru
+          Serial.println("Start odtwarzania folderu");
+          volumeValue = 15;            // Ustaw domyślną głośność dla plików
+          audio.setVolume(volumeValue);
+          playFromSelectedFolder();  // uruchom odtwarzanie
+        }
+      }
     }
 
-    changeStation();
+
   }
 
-  // Przycisk pilota FF+ zwiększanie numeru banku
+  // Przycisk pilota FF+ zwiększanie numeru banku lub przewijanie w górę listy folderów
   if (IRbankUp == true)
   {
-    IRbankUp = false;
-    bankSwitch = true;
-    displayActive = true;
-    displayStartTime = millis();
-
-    bank_nr++;
-    if(bank_nr > 18)
+    if (currentOption == INTERNET_RADIO)
     {
-      bank_nr = 1;
+      IRbankUp = false;
+      bankSwitch = true;
+      displayActive = true;
+      displayStartTime = millis();
+
+      bank_nr++;
+      if (bank_nr > 18)
+      {
+        bank_nr = 1;
+      }
+      canvas.fillRect(70, 285, 30, 35, COLOR_BLACK);
+      canvas.setFont(&FreeMonoBold12pt7b);
+      canvas.setTextColor(COLOR_YELLOW);
+      canvas.setCursor(70, 310);
+      canvas.print(bank_nr);
+      tft_pushCanvas(canvas);
     }
-    canvas.fillRect(70, 285, 30, 35, COLOR_BLACK);
-    canvas.setFont(&FreeMonoBold12pt7b);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(70, 310);
-    canvas.print(bank_nr);
-    tft_pushCanvas(canvas);
+    if (currentOption == PLAY_FILES)
+    {
+      IRbankUp = false;
+      fileSelection = false;
+      folderSelection = true;
+      displayActive = true;
+      displayStartTime = millis();
+      scrollUpFolders();
+      folderIndex = currentSelection;
+    }
   }
 
-  // Przycisk pilota FF- zmniejszanie numeru banku
+  // Przycisk pilota FF- zmniejszanie numeru banku lub przewijanie w dół listy folderów
   if (IRbankDown == true)
   {
-    IRbankDown = false;
-    bankSwitch = true;
-    displayActive = true;
-    displayStartTime = millis();
-
-    bank_nr--;
-    if (bank_nr < 1)
+    if (currentOption == INTERNET_RADIO)
     {
-      bank_nr = 18;
-    }
-    canvas.fillRect(70, 285, 30, 35, COLOR_BLACK);
-    canvas.setFont(&FreeMonoBold12pt7b);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(70, 310);
-    canvas.print(bank_nr);
-    tft_pushCanvas(canvas);
+      IRbankDown = false;
+      bankSwitch = true;
+      displayActive = true;
+      displayStartTime = millis();
 
+      bank_nr--;
+      if (bank_nr < 1)
+      {
+        bank_nr = 18;
+      }
+      canvas.fillRect(70, 285, 30, 35, COLOR_BLACK);
+      canvas.setFont(&FreeMonoBold12pt7b);
+      canvas.setTextColor(COLOR_YELLOW);
+      canvas.setCursor(70, 310);
+      canvas.print(bank_nr);
+      tft_pushCanvas(canvas);
+    }
+    if (currentOption == PLAY_FILES)
+    {
+      IRbankDown = false;
+      fileSelection = false;
+      folderSelection = true;
+      displayActive = true;
+      displayStartTime = millis();
+      scrollDownFolders();
+      folderIndex = currentSelection;
+    }
   }
 
   if (IRdownArrow == true)  // Dolny przycisk kierunkowy
@@ -2812,9 +3873,28 @@ void loop()
     displayStations();
   }
 
+  if (IRmenuButton == true)  // Przycisk MODE w pilocie
+  {
+    IRmenuButton = false;
+    menuEnable = true;
+    displayActive = true;
+    isPlaying = false;
+    displayStartTime = millis();
+    // Przełączanie opcji menu na drugą (cyklicznie)
+    if (currentOption == INTERNET_RADIO)
+    {
+      currentOption = PLAY_FILES;
+    }
+    else
+    {
+      currentOption = INTERNET_RADIO;
+    }
+    displayMenu();
+  }
+
 
   // Powrót do wyświetlania radia po bezczynności
-  if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
+  if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
   {
     station_nr = previous_station_nr; 
     bank_nr = previous_bank_nr;
