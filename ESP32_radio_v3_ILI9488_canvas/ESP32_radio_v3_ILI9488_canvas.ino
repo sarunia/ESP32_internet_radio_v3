@@ -3166,8 +3166,10 @@ void playFromSelectedFolder()
         playPreviousFile = false;
         audio.stopSong();
         isPlaying = false;
-        if (fileIndex > 0) fileIndex--;
-        else fileIndex = 0;
+        if (fileIndex > 0)
+          fileIndex--;
+        else
+          fileIndex = 0;
         break;
       }
 
@@ -3177,7 +3179,7 @@ void playFromSelectedFolder()
         IRbankDown = false;
         folderSelection = true;
         scrollDownFolders();
-        folderIndex = currentSelection;
+        folderIndex = currentSelection - 1;
         displayFolders();
       }
       if (IRbankUp)
@@ -3185,26 +3187,8 @@ void playFromSelectedFolder()
         IRbankUp = false;
         folderSelection = true;
         scrollUpFolders();
-        folderIndex = currentSelection;
+        folderIndex = currentSelection - 1;
         displayFolders();
-      }
-
-      // Przewijanie plików
-      if (IRdownArrow)
-      {
-        IRdownArrow = false;
-        fileSelection = true;
-        scrollDownFiles();
-        fileIndex = currentSelection;
-        displayFiles();
-      }
-      if (IRupArrow)
-      {
-        IRupArrow = false;
-        fileSelection = true;
-        scrollUpFiles();
-        fileIndex = currentSelection;
-        displayFiles();
       }
 
       // Zatwierdzenie wyboru folderu - wejście do nowego folderu (użytkownik chce od razu załadować pliki)
@@ -3218,16 +3202,6 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (IRpauseResume)
-      {
-        //togglePauseResume();
-        IRpauseResume = false;
-      }
-      if (IRmuteTrigger)
-      {
-        //toggleMute();
-        IRmuteTrigger = false;
-      }
 
     } // koniec while(isPlaying)
 
@@ -3347,58 +3321,84 @@ void scrollUpFiles()
   displayFiles();
 }
 
+
 // Wyświetlanie przewijalnej listy plików z podświetleniem
 void displayFiles()
 {
-  // Nagłówek
-  String text = "Odtwarzacz plikow - lista plikow";
-  canvas.fillRect(0, 0, 480, 160, COLOR_BLACK);
-  canvas.setFont(&FreeSans12pt7b);
-  canvas.setTextColor(COLOR_CYAN);
-  canvas.setCursor(0, 25);
-  canvas.print(text + " " + String(fileIndex + 1) + "/" + String(filesCount));
+    const int maxWidth = 470;       // maksymalna szerokość w pikselach (trochę mniej niż ekran 480)
+    const int maxVisibleFiles = 6;  // wyświetlamy 6 plików
+    const int rowHeight = 25;       // wysokość wiersza
 
-  // Bieżący folder
-  canvas.setTextColor(COLOR_YELLOW);
-  canvas.setCursor(0, 45);
-  canvas.print(currentDirectory);
+    // Czyszczenie ekranu
+    canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
 
-  int displayRow = 0;
-  int rowHeight = 25;
+    // Nagłówek
+    canvas.setFont(&FreeSans12pt7b);
+    canvas.setTextColor(COLOR_CYAN);
+    canvas.setCursor(0, 25);
+    canvas.print("Odtwarzacz plikow - lista plikow " + String(fileIndex + 1) + "/" + String(filesCount));
 
-  // Wyświetlanie plików
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 5, filesCount); i++)
-  {
-    String fileNameDisplay = files[i];
+    // Bieżący folder
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(0, 45);
+    canvas.print(currentDirectory);
 
-    // Wytnij samą nazwę pliku (bez ścieżki)
-    int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
-    if (lastSlashIndex != -1) 
+    int displayRow = 0;
+
+    // Korekta firstVisibleLine dla przewijania
+    if (currentSelection < firstVisibleLine)
+        firstVisibleLine = currentSelection;
+    if (currentSelection >= firstVisibleLine + maxVisibleFiles)
+        firstVisibleLine = currentSelection - maxVisibleFiles + 1;
+
+    // Wyświetlanie plików
+    for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleFiles, filesCount); i++)
     {
-      fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
+        String fileNameDisplay = files[i];
+
+        // Wytnij samą nazwę pliku (bez ścieżki)
+        int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
+        if (lastSlashIndex != -1) 
+        {
+            fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
+        }
+
+        // Przycinanie nazwy, jeśli jest zbyt szeroka
+        int16_t x1, y1;
+        uint16_t w, h;
+        while (true)
+        {
+            canvas.getTextBounds(fileNameDisplay, 0, 0, &x1, &y1, &w, &h);
+            if (w <= maxWidth) break;  // pasuje
+            if (fileNameDisplay.length() > 3)
+                fileNameDisplay = fileNameDisplay.substring(0, fileNameDisplay.length() - 2) + "...";
+            else
+                break;
+        }
+
+        int y = 80 + displayRow * rowHeight;
+
+        // Podświetlenie wybranego pliku
+        if (i == currentSelection)
+        {
+            canvas.fillRect(0, y - 20, 480, rowHeight, COLOR_ORANGE);
+            canvas.setTextColor(COLOR_BLACK);
+        }
+        else
+        {
+            canvas.setTextColor(COLOR_WHITE);
+        }
+
+        canvas.setCursor(0, y);
+        canvas.print(fileNameDisplay);
+
+        displayRow++;
     }
 
-    int y = 80 + displayRow * rowHeight - 5; // -5 pikseli przesunięcia w górę
+    tft_pushCanvas(canvas);
 
-    // Podświetlenie wybranego pliku
-    if (i == currentSelection)
-    {
-      canvas.fillRect(0, y - 18, 480, rowHeight, COLOR_ORANGE);
-      canvas.setTextColor(COLOR_BLACK);
-    }
-    else
-    {
-      canvas.setTextColor(COLOR_WHITE);
-    }
-
-    canvas.setCursor(0, y);
-    canvas.print(fileNameDisplay);
-
-    displayRow++;
-  }
-
-  tft_pushCanvas(canvas);
 }
+
 
 
 
