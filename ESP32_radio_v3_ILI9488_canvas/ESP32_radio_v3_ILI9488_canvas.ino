@@ -2609,7 +2609,7 @@ void my_audio_info(Audio::msg_t m)
       }
 
       // --- YEAR ---
-      if (msg.startsWith("Year:") || msg.startsWith("Year="))
+      if (msg.startsWith("Year:") || msg.startsWith("Year=") || msg.startsWith("DATE=") || msg.startsWith("Date="))
       {
         int sep = msg.indexOf(':');
         if (sep == -1) sep = msg.indexOf('=');
@@ -2955,8 +2955,7 @@ void displayFolders()
   // Wyślij całość na ekran
   tft_pushCanvas(canvas);
   
-  Serial.printf("displayFolders: folderCount=%d currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
-              folderCount, currentSelection, firstVisibleLine, folderIndex);
+  //Serial.printf("displayFolders: folderCount=%d currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", folderCount, currentSelection, firstVisibleLine, folderIndex);
 
 }
 
@@ -2987,9 +2986,7 @@ void scrollUpFolders()
   // Zaktualizuj folderIndex, który może być używany w innych częściach programu
   folderIndex = currentSelection;
 
-  // Debug (opcjonalnie)
-  Serial.printf("scrollUpFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
-                currentSelection, firstVisibleLine, folderIndex);
+  //Serial.printf("scrollUpFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", currentSelection, firstVisibleLine, folderIndex);
 
   displayFolders();
 }
@@ -3018,8 +3015,7 @@ void scrollDownFolders()
 
   folderIndex = currentSelection;
 
-  Serial.printf("scrollDownFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n",
-                currentSelection, firstVisibleLine, folderIndex);
+  //Serial.printf("scrollDownFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", currentSelection, firstVisibleLine, folderIndex);
 
   displayFolders();
 }
@@ -3188,6 +3184,8 @@ void playFromSelectedFolder()
       if (IRbankDown)
       {
         IRbankDown = false;
+        displayActive = true;
+        displayStartTime = millis();
         folderSelection = true;
         scrollDownFolders();
         folderIndex = currentSelection - 1;
@@ -3196,6 +3194,8 @@ void playFromSelectedFolder()
       if (IRbankUp)
       {
         IRbankUp = false;
+        displayActive = true;
+        displayStartTime = millis();
         folderSelection = true;
         scrollUpFolders();
         folderIndex = currentSelection - 1;
@@ -3211,6 +3211,15 @@ void playFromSelectedFolder()
         isPlaying = false;
         playNextFolder = true;
         break;
+      }
+
+      // Powrót do wyświetlania playera po bezczynności
+      if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
+      {
+        displayActive = false;
+        displayStartTime = millis();
+        Serial.println("Timeout: powrót do głównego ekranu playera");
+        displayPlayer();
       }
 
 
