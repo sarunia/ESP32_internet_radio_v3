@@ -122,7 +122,7 @@ int filesCount = 0;               // Licznik plików w danym folderze na karcie 
 int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze wskazanego folderu
 int previous_fileIndex = 0;       // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
-int previous_folderIndex = 0;     // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności
+int previous_folderIndex = 0;     // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności oraz
 int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
 int volumeArray[100];             // Wartości głośności dla 100 stacji w każdym banku
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
@@ -174,6 +174,7 @@ bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterow
 bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
 bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
+
 
 unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
 unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
@@ -518,30 +519,61 @@ void processIRCode()
       {  
         IRhomeButton = true;
       }
-      else if (ir_code == rcCmdOk)           // Przycisk OK
-      {  
-        
+      else if (ir_code == rcCmdOk) // Przycisk OK
+      {
         if (inputActive && inputBuffer.length() > 0)
         {
-          int chosenStation = inputBuffer.toInt();
-          if (chosenStation >= 1 && chosenStation <= stationsCount)
+          int chosenNumber = inputBuffer.toInt();
+
+          // Stacje radiowe
+          if (currentOption == INTERNET_RADIO)
           {
-            station_nr = chosenStation;
-            currentSelection = station_nr - 1;  // indeks 0-based
-            firstVisibleLine = max(0, currentSelection - maxVisibleLines/2);
-
-            //Serial.print("Przechodzę do stacji nr: ");
-            //Serial.println(station_nr);
-
-            displayStations();
+            if (chosenNumber >= 1 && chosenNumber <= stationsCount)
+            {
+              station_nr = chosenNumber;
+              currentSelection = station_nr - 1;
+              firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
+              displayStations();
+            }
           }
-         inputBuffer = "";
-         inputActive = false;
-       }
-       else
-       {
-        IRokButton = true; // normalne działanie
-       }
+
+          // Pliki audio
+          if (currentOption == PLAY_FILES)
+          {
+            if (folderSelection)
+            {
+              // Wpisany numer wybiera folder
+              int chosenFolder = chosenNumber - 1;
+              if (chosenFolder >= 0 && chosenFolder < folderCount)
+              {
+                folderIndex = chosenFolder;
+                currentSelection = folderIndex;
+                folderSelection = false;
+                fileSelection = true;
+                displayFolders();
+              }
+            }
+            else if (fileSelection)
+            {
+              // Wpisany numer wybiera plik
+              int chosenFile = chosenNumber - 1;
+              if (chosenFile >= 0 && chosenFile < filesCount)
+              {
+                fileIndex = chosenFile;
+                currentSelection = fileIndex;
+                displayFiles();
+              }
+            }
+          }
+
+          inputBuffer = "";
+          inputActive = false;
+        }
+        else
+        {
+          // Normalne działanie przycisku OK
+          IRokButton = true;
+        }
       }
       else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
       {  
@@ -590,6 +622,7 @@ void processIRCode()
   }
 }
 
+
 void handleDigitInput(int digit)
 {
   if (!inputActive)
@@ -609,12 +642,39 @@ void handleDigitInput(int digit)
   Serial.println(inputBuffer);
 
   // pokaż na ekranie wpisany numer
-  canvas.fillRect(210, 285, 40, 35, COLOR_BLACK);  // wyczyść pole
-  canvas.setFont(&FreeMonoBold12pt7b);
-  canvas.setTextColor(COLOR_YELLOW);
-  canvas.setCursor(210, 310);
-  canvas.print(inputBuffer);
-  tft_pushCanvas(canvas);
+  if (currentOption == INTERNET_RADIO)
+  {
+    canvas.fillRect(210, 285, 40, 35, COLOR_BLACK);  // wyczyść pole
+    canvas.setFont(&FreeMonoBold12pt7b);
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setCursor(210, 310);
+    canvas.print(inputBuffer);
+    tft_pushCanvas(canvas);
+  }
+
+  if (currentOption == PLAY_FILES)
+  {
+    // Nagłówek stały
+    String header = "WYBIERZ PLIK Z ZAKRESU 1-" + String(filesCount) + "  ";
+    canvas.fillRect(0, 0, 480, 35, COLOR_BLACK);  // wyczyść pole
+    canvas.setFont(&FreeMonoBold12pt7b);
+    canvas.setTextColor(COLOR_CYAN);
+    canvas.setCursor(0, 25);
+    canvas.print(header);
+
+    // Input w innym kolorze (CYAN)
+    int16_t x1, y1;
+    uint16_t w, h;
+    canvas.getTextBounds(header, 0, 25, &x1, &y1, &w, &h);
+    canvas.setTextColor(COLOR_GREEN);
+    canvas.setCursor(w + 5, 25);   // +5 odstęp po nagłówku
+    canvas.print(inputBuffer);
+
+    tft_pushCanvas(canvas);
+
+    fileIndex = inputBuffer.toInt() - 1; // konwersja na indeks 0-based
+    fileSelection = true;
+  }
 }
 
 
@@ -1032,7 +1092,6 @@ void updateWeather()
 }
 
 
-
 // Funkcja do ustawienia głośności na żądaną wartość
 void volumeSet()
 {
@@ -1073,6 +1132,7 @@ void volumeSet()
   }
 }
 
+
 // Obsługa regulacji głośności z pilota zdalnego sterowania
 void volumeSetFromRemote()
 {
@@ -1098,6 +1158,7 @@ void volumeSetFromRemote()
     volumeSet();
   }
 }
+
 
 // Zapisywanie na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
 void saveVolumeSettings(int station, int volume, int bank)
@@ -1155,6 +1216,7 @@ void saveVolumeSettings(int station, int volume, int bank)
     Serial.println("Błąd otwierania pliku do zapisu.");
   }
 }
+
 
 // Ładowanie zapisanych na karcie SD wartości głośności dla wybranej stacji z aktualnego banku
 void loadVolumeSettings(int station, int bank)
@@ -1263,6 +1325,7 @@ void loadVolumeSettings(int station, int bank)
   }
   Serial.println();
 }
+
 
 // Funkcja konwertująca timestamp na datę i godzinę w formacie "YYYY-MM-DD HH:MM:SS"
 String convertTimestampToDate(unsigned long timestamp)  
@@ -1567,6 +1630,7 @@ void SDinit()
   }
 }
 
+
 // Funkcja do pobierania listy stacji radiowych z serwera i zapisania ich w wybranym banku na karcie SD
 void fetchStationsFromServer()
 {
@@ -1728,6 +1792,7 @@ void fetchStationsFromServer()
   http.end();
 }
 
+
 // Funkcja przetwarza i zapisuje stację do pamięci EEPROM
 void sanitizeAndSaveStation(const char* station)
 {
@@ -1754,6 +1819,7 @@ void sanitizeAndSaveStation(const char* station)
   // Zapisz przetworzoną stację do pamięci EEPROM
   saveStationToEEPROM(sanitizedStation);
 }
+
 
 //Funkcja odpowiedzialna za zapisywanie informacji o stacji do pamięci EEPROM.
 void saveStationToEEPROM(const char* station)
@@ -1796,6 +1862,7 @@ void saveStationToEEPROM(const char* station)
     Serial.println("Błąd: Osiągnięto maksymalną liczbę zapisanych stacji");
   }
 }
+
 
 // Funkcja do odczytywania numeru stacji i numeru banku z karty SD
 void readStationFromSD()
@@ -1851,6 +1918,7 @@ void readStationFromSD()
     Serial.println("Plik bank_nr.txt nie istnieje.");
   }
 }
+
 
 // Funkcja odpowiedzialna za zmianę aktualnie wybranej stacji radiowej.
 void changeStation()
@@ -1942,6 +2010,7 @@ void changeStation()
   }
 }
 
+
 void saveStationOnSD()
 {
   // Sprawdź, czy plik station_nr.txt istnieje
@@ -2018,10 +2087,10 @@ void saveStationOnSD()
 }
 
 
-// Funkcja do wyświetlania listy stacji radiowych na ILI9488
+// Funkcja do wyświetlania listy stacji radiowych
 void displayStations()
 {
-  // Wyczyść tylko obszar listy (pierwsze ~230 px wysokości)
+  // Wyczyść tylko obszar listy
   canvas.fillRect(0, 0, TFT_WIDTH, 230, COLOR_BLACK);
 
   // --- Nagłówek ---
@@ -2052,7 +2121,7 @@ void displayStations()
     String stationName = String(station);
     stationName.trim();  // usuń spacje i śmieci
 
-    // --- Przytnij do 25 znaków ---
+    // Przytnij do 25 znaków
     if (stationName.length() > 25)
     {
       stationName = stationName.substring(0, 25);
@@ -2060,7 +2129,7 @@ void displayStations()
 
     // Kolor w zależności od zaznaczenia
     if (i == currentSelection)
-      canvas.setTextColor(COLOR_TURQUOISE);
+      canvas.setTextColor(COLOR_CYAN);
     else
       canvas.setTextColor(COLOR_LIME);
 
@@ -2083,15 +2152,15 @@ void displayStations()
 }
 
 
-
+// Funkcja do wyświetlania aktualnej stacji radiowej
 void displayRadio()
 {
   if (displayActive == false)
   {
-    // --- Czyszczenie całego ekranu przed rysowaniem nowej zawartości ---
+    // Czyszczenie całego ekranu
     canvas.fillScreen(COLOR_BLACK);
 
-    // --- Nazwa stacji ---
+    // Nazwa stacji
     String mainName = stationName;
     if (mainName.length() > 25)
     {
@@ -2100,16 +2169,16 @@ void displayRadio()
     mainName.trim(); // Usuń ewentualne spacje z początku i końca
 
     canvas.setFont(&FreeSansBold18pt7b);   // Ustawienie dużej czcionki dla nazwy stacji
-    canvas.setTextColor(COLOR_TURQUOISE); // Kolor nazwy stacji
+    canvas.setTextColor(COLOR_RED);        // Kolor nazwy stacji
     canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
     canvas.println(mainName);              // Wyświetlenie nazwy stacji
 
-    // --- Informacje o aktualnym strumieniu (stream title) ---
+    // Informacje o aktualnym strumieniu (stream title)
     canvas.setFont(&FreeSans12pt7b);      // Ustawienie mniejszej czcionki dla stream title
     canvas.setTextColor(COLOR_LIME);      // Kolor tekstu informacji o stacji
     drawWrappedCanvasText(stationInfo.c_str(), 0, 70, 480, 30); // Wyświetlenie zawijanego tekstu
 
-    // --- Numer banku i numer stacji ---
+    // Numer banku i numer stacji
     String bankInfo = "Bank " + String(bank_nr);
     if (bank_nr < 10)
       bankInfo += " "; // Dodanie spacji dla wyrównania
@@ -2120,7 +2189,7 @@ void displayRadio()
     canvas.setCursor(0, 310);             // Pozycja w dolnej części ekranu
     canvas.print(bankInfo);               // Wyświetlenie numeru banku i stacji
 
-    // --- Parametry audio (bitrate, sample rate, bits per sample) ---
+    // Parametry audio (bitrate, sample rate, bits per sample)
     String audioInfoDisplay = "";
     bitrateString.trim();      // Usuń białe znaki
     sampleRateString.trim();
@@ -2135,18 +2204,18 @@ void displayRadio()
     canvas.setCursor(5, 250);             // Pozycja tekstu powyżej głośności
     canvas.print(audioInfoDisplay);       // Wyświetlenie parametrów audio
 
-    // --- Wyświetlenie głośności ---
+    // Wyświetlenie głośności
     volumeDisplay = "VOL " + String(volumeValue);
     canvas.setTextColor(COLOR_WHITE);     // Kolor dla głośności
     canvas.setCursor(5, 280);             // Pozycja tekstu
     canvas.print(volumeDisplay);          // Wyświetlenie głośności
 
-    // --- Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.) ---
-    canvas.setTextColor(COLOR_TURQUOISE); // Kolor tekstu
+    // Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.)
+    canvas.setTextColor(COLOR_RED); // Kolor tekstu
     canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
     canvas.print(fileType);               // Wyświetlenie typu pliku
 
-    // --- Wysyłanie całego canvasu na ekran TFT ---
+    // Wysyłanie całego canvasu na ekran TFT
     tft_pushCanvas(canvas);
   }
 }
@@ -2228,6 +2297,7 @@ void scrollDown()
       Serial.println(firstVisibleLine);
 }
 
+
 // Funkcja zwracająca maksymalny możliwy wybór w zależności od opcji
 int maxSelection()
 {
@@ -2244,8 +2314,7 @@ int maxSelection()
 }
 
 
-
-// --- Funkcja do przełączania danych pogodowych ---
+// Funkcja do przełączania danych pogodowych
 void switchWeatherData()
 {
   unsigned long now = millis();
@@ -2307,7 +2376,7 @@ void switchWeatherData()
 }
 
 
-// --- Funkcja do przełączania karuzeli kalendarza ---
+// Funkcja do przełączania karuzeli kalendarza
 void showCalendarCarousel()
 {
   unsigned long now = millis();
@@ -2394,7 +2463,6 @@ void showCalendarCarousel()
     }
   }
 }
-
 
 
 // Obsługa callbacka info o audio
@@ -2731,8 +2799,6 @@ void drawClock()
 
 void displayMenu()
 {
-  //menuEnable = true;
-
   // Wyczyść obszar w canvas
   canvas.fillRect(0, 0, 480, 160, COLOR_BLACK);
 
@@ -2783,7 +2849,7 @@ void listDirectories(const char *dirname)
   printDirectoriesAndSavePaths(root, 0, ""); // Początkowo pełna ścieżka jest pusta
   Serial.println("Wylistowano katalogi z karty SD");
   root.close();
-  //scrollDown();
+
   displayFolders();
 }
 
@@ -2898,26 +2964,23 @@ int compareStringsWithNumbers(const String &a, const String &b)
   return a.length() - b.length();
 }
 
-// Funkcja do wyświetlania folderów na ekranie TFT (canvas) z uwzględnieniem zaznaczenia
+// Funkcja do wyświetlania folderów na ekranie z uwzględnieniem zaznaczenia
 void displayFolders()
 {
-  // Nagłówek
-  String text = "Odtwarzacz plikow - lista katalogow";
-
   canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
 
-  // Bezpieczny indeks do wyświetlenia
   int displayIndex = 0;
   if (folderCount > 0)
   {
     displayIndex = constrain(currentSelection, 0, folderCount - 1);
   }
 
-  // Nagłówek (pokazujemy currentSelection, nie folderIndex)
+  // Nagłówek
+  String header = "LISTA FOLDEROW   " + String(displayIndex + 1) + " / " + String(folderCount);
   canvas.setFont(&FreeSans12pt7b);
   canvas.setTextColor(COLOR_CYAN);
-  canvas.setCursor(0, 25);
-  canvas.print(text + " " + String(displayIndex + 1) + "/" + String(folderCount));
+  canvas.setCursor(50, 25);
+  canvas.print(header);
 
   int displayRow = 0;  
   int rowHeight = 30;   // odstęp pionowy między wpisami
@@ -3021,7 +3084,6 @@ void scrollDownFolders()
 }
 
 
-
 // Funkcja do odtwarzania plików audio z wybranego folderu
 void playFromSelectedFolder()
 {
@@ -3044,23 +3106,23 @@ void playFromSelectedFolder()
   fileIndex = 0;
   while (true)
   {
-      File entry = root.openNextFile();
-      if (!entry) break;
+    File entry = root.openNextFile();
+    if (!entry) break;
 
-      String name = entry.name();
-      if (isAudioFile(name.c_str()))
-      {
-          files[filesCount] = String(folderNameString) + "/" + name;
+    String name = entry.name();
+    if (isAudioFile(name.c_str()))
+    {
+      files[filesCount] = String(folderNameString) + "/" + name;
 
-          // Wydrukuj pełną ścieżkę i numer pliku
-          Serial.print("Dodano plik [");
-          Serial.print(filesCount + 1);
-          Serial.print("]: ");
-          Serial.println(files[filesCount]);
+      // Wydrukuj pełną ścieżkę i numer pliku
+      Serial.print("Dodano plik [");
+      Serial.print(filesCount + 1);
+      Serial.print("]: ");
+      Serial.println(files[filesCount]);
 
-          filesCount++;
-      }
-      entry.close();
+      filesCount++;
+    }
+    entry.close();
   }
 
   Serial.print("Łącznie znaleziono plików audio: ");
@@ -3202,20 +3264,58 @@ void playFromSelectedFolder()
         displayFolders();
       }
 
-      // Zatwierdzenie wyboru folderu - wejście do nowego folderu (użytkownik chce od razu załadować pliki)
+      // Zatwierdzenie wyboru folderu
       if (IRokButton && folderSelection)
       {
         IRokButton = false;
         folderSelection = false;
+        displayActive = false;
         audio.stopSong();
         isPlaying = false;
         playNextFolder = true;
         break;
       }
 
+      // Zatwierdzenie wyboru pliku
+      if (IRokButton && fileSelection)
+      {
+        IRokButton = false;
+        fileSelection = false;
+        displayActive = false;
+        audio.stopSong();
+        isPlaying = false;
+        break;
+      }
+
+      if (IRdownArrow == true)  // Dolny przycisk kierunkowy
+      {
+        IRdownArrow = false;
+        displayActive = true;
+        displayStartTime = millis();
+        fileSelection = true;
+        scrollDownFiles();
+        fileIndex = currentSelection;
+        displayFiles();
+      }
+
+      if (IRupArrow == true)  // Górny przycisk kierunkowy
+      {
+        IRupArrow = false;
+        displayActive = true;
+        displayStartTime = millis();
+        fileSelection = true;
+        scrollUpFiles();
+        fileIndex = currentSelection;
+        displayFiles();
+      }
+
       // Powrót do wyświetlania playera po bezczynności
       if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
       {
+        inputBuffer = "";
+        inputActive = false;
+        fileSelection = false;
+        folderSelection = false;
         displayActive = false;
         displayStartTime = millis();
         Serial.println("Timeout: powrót do głównego ekranu playera");
@@ -3253,7 +3353,6 @@ void playFromSelectedFolder()
       return;
     }
 
-
   }
 
   // Zamknij katalog przy normalnym wyjściu
@@ -3283,7 +3382,7 @@ void playFile()
     fileTime = "00h:00m:00s";
     isPlaying = true;
     Serial.print("Odtwarzanie pliku: ");
-    Serial.print(fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
+    Serial.print(previous_fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
     Serial.print("/");
     Serial.print(filesCount); // Łączna liczba plików w folderze
     Serial.print(" - ");
@@ -3299,7 +3398,6 @@ void playFile()
 }
 
 
-
 // Przewijanie listy plików w dół
 void scrollDownFiles()
 {
@@ -3309,12 +3407,14 @@ void scrollDownFiles()
     fileIndex = 0; // wróć na początek
   }
   Serial.print("Numer pliku do przodu: ");
-  Serial.println(fileIndex);
+  Serial.println(fileIndex + 1);
 
   currentSelection = fileIndex;
-  if (currentSelection >= firstVisibleLine + 5) 
+
+  if (currentSelection >= firstVisibleLine + 6)  // max 6 wierszy
   {
     firstVisibleLine++;
+    if (firstVisibleLine > filesCount - 6) firstVisibleLine = filesCount - 6;
   }
 
   displayFiles();
@@ -3329,9 +3429,10 @@ void scrollUpFiles()
     fileIndex = filesCount - 1; // przejdź na ostatni
   }
   Serial.print("Numer pliku do tyłu: ");
-  Serial.println(fileIndex);
+  Serial.println(fileIndex + 1);
 
   currentSelection = fileIndex;
+
   if (currentSelection < firstVisibleLine) 
   {
     firstVisibleLine--;
@@ -3345,86 +3446,102 @@ void scrollUpFiles()
 // Wyświetlanie przewijalnej listy plików z podświetleniem
 void displayFiles()
 {
-    const int maxWidth = 470;       // maksymalna szerokość w pikselach (trochę mniej niż ekran 480)
-    const int maxVisibleFiles = 6;  // wyświetlamy 6 plików
-    const int rowHeight = 25;       // wysokość wiersza
-
-    // Czyszczenie ekranu
-    canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
-
-    // Nagłówek
+  if (filesCount <= 0)
+  {
+    Serial.println("Brak plików do wyświetlenia!");
+    canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);
     canvas.setFont(&FreeSans12pt7b);
-    canvas.setTextColor(COLOR_CYAN);
-    canvas.setCursor(0, 25);
-    canvas.print("Odtwarzacz plikow - lista plikow " + String(fileIndex + 1) + "/" + String(filesCount));
+    canvas.setTextColor(COLOR_RED);
+    canvas.setCursor(10, 50);
+    canvas.print("Brak plikow w folderze!");
+    tft_pushCanvas(canvas);
+    return;
+  }
 
-    // Bieżący folder
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(0, 45);
-    canvas.print(currentDirectory);
+  //Serial.printf("filesCount=%d fileIndex=%d currentSelection=%d firstVisibleLine=%d\n", filesCount, fileIndex, currentSelection, firstVisibleLine);
 
-    int displayRow = 0;
+  const int maxVisibleFiles = 6;
+  const int rowHeight = 30;
+  const int maxChars = 46;  // maksymalna liczba znaków w wierszu
 
-    // Korekta firstVisibleLine dla przewijania
-    if (currentSelection < firstVisibleLine)
-        firstVisibleLine = currentSelection;
-    if (currentSelection >= firstVisibleLine + maxVisibleFiles)
-        firstVisibleLine = currentSelection - maxVisibleFiles + 1;
+  // Czyszczenie ekranu
+  canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
 
-    // Wyświetlanie plików
-    for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleFiles, filesCount); i++)
+  // Nagłówek
+  String header = "LISTA PLIKOW   " + String(fileIndex + 1) + " / " + String(filesCount);
+  canvas.setFont(&FreeSans12pt7b);
+  canvas.setTextColor(COLOR_CYAN);
+  canvas.setCursor(50, 25);
+  canvas.print(header);
+
+  // Korekta firstVisibleLine
+  if (currentSelection < firstVisibleLine)
+  {
+    firstVisibleLine = currentSelection;
+  }
+  if (currentSelection >= firstVisibleLine + maxVisibleFiles)
+  {
+    firstVisibleLine = currentSelection - maxVisibleFiles + 1;
+  }
+
+  //Serial.printf("Po korekcie: currentSelection=%d firstVisibleLine=%d\n", currentSelection, firstVisibleLine);
+
+  int displayRow = 0;
+
+  for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleFiles, filesCount); i++)
+  {
+    //Serial.printf("Rysuję plik index=%d (displayRow=%d)\n", i, displayRow);
+
+    if (i < 0 || i >= filesCount)
     {
-        String fileNameDisplay = files[i];
-
-        // Wytnij samą nazwę pliku (bez ścieżki)
-        int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
-        if (lastSlashIndex != -1) 
-        {
-            fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
-        }
-
-        // Przycinanie nazwy, jeśli jest zbyt szeroka
-        int16_t x1, y1;
-        uint16_t w, h;
-        while (true)
-        {
-            canvas.getTextBounds(fileNameDisplay, 0, 0, &x1, &y1, &w, &h);
-            if (w <= maxWidth) break;  // pasuje
-            if (fileNameDisplay.length() > 3)
-                fileNameDisplay = fileNameDisplay.substring(0, fileNameDisplay.length() - 2) + "...";
-            else
-                break;
-        }
-
-        int y = 80 + displayRow * rowHeight;
-
-        // Podświetlenie wybranego pliku
-        if (i == currentSelection)
-        {
-            canvas.fillRect(0, y - 20, 480, rowHeight, COLOR_ORANGE);
-            canvas.setTextColor(COLOR_BLACK);
-        }
-        else
-        {
-            canvas.setTextColor(COLOR_WHITE);
-        }
-
-        canvas.setCursor(0, y);
-        canvas.print(fileNameDisplay);
-
-        displayRow++;
+      Serial.printf("BŁĄD: i=%d poza zakresem (filesCount=%d)\n", i, filesCount);
+      continue;
     }
 
-    tft_pushCanvas(canvas);
+    String fileNameDisplay = files[i];
 
+    // Nazwa bez ścieżki
+    int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
+    if (lastSlashIndex != -1)
+    {
+      fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
+    }
+
+    // Przycinanie do max 42 znaków
+    if (fileNameDisplay.length() > maxChars)
+    {
+      fileNameDisplay = fileNameDisplay.substring(0, maxChars - 3) + "...";
+    }
+
+    //Serial.printf("Plik do wyswietlenia='%s'\n", fileNameDisplay.c_str());
+
+    int y = 65 + displayRow * rowHeight;
+
+    // Podświetlenie zaznaczonego
+    if (i == currentSelection)
+    {
+      //Serial.println(" -> Ten plik jest zaznaczony!");
+      canvas.fillRect(0, y - 22, 480, rowHeight, COLOR_ORANGE);
+      canvas.setTextColor(COLOR_BLACK);
+    }
+    else
+    {
+      canvas.setTextColor(COLOR_WHITE);
+    }
+
+    canvas.setCursor(0, y);
+    canvas.print(fileNameDisplay);
+
+    displayRow++;
+  }
+
+  tft_pushCanvas(canvas);
 }
-
-
 
 
 void displayPlayer()
 {
-  // --- Czyszczenie całego ekranu przed rysowaniem nowej zawartości ---
+  // Czyszczenie całego ekranu
   canvas.fillScreen(COLOR_BLACK);
 
   int x = 0;
@@ -3434,11 +3551,11 @@ void displayPlayer()
   canvas.setFont(&FreeSans12pt7b);
 
   // Nagłówek pliku/folderu
-  canvas.setTextColor(COLOR_CYAN);
-  String header = "   Odtwarzanie pliku " + String(fileIndex + 1) + "/" + String(filesCount) +
-                  " folder " + String(folderIndex + 1) + "/" + String(folderCount);
+  canvas.setTextColor(COLOR_SKYBLUE);
+  String header = "   Odtwarzanie pliku " + String(previous_fileIndex + 1) + "/" + String(filesCount) +
+                  " folder " + String(previous_folderIndex + 1) + "/" + String(folderCount);
   canvas.setCursor(x, y);
-  canvas.print(fitTextToWidth(header, 480));
+  canvas.print(fitTextToWidth(header, 460));
   y += lineHeight;
 
   if (id3tag)
@@ -3449,7 +3566,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Artysta: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(artistString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(artistString, 460 - canvas.getCursorX()));
 
     y += lineHeight;
 
@@ -3459,7 +3576,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Tytul: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(titleString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(titleString, 460 - canvas.getCursorX()));
 
     y += lineHeight;
 
@@ -3469,7 +3586,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Album: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(albumString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(albumString, 460 - canvas.getCursorX()));
 
     y += lineHeight;
 
@@ -3478,7 +3595,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Rok: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(yearString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(yearString, 460 - canvas.getCursorX()));
 
     y += lineHeight;
 
@@ -3488,7 +3605,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Folder: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(folderNameString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(folderNameString, 460 - canvas.getCursorX()));
 
     y += lineHeight;  // przejście do kolejnej linii
 
@@ -3498,7 +3615,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Plik: ");
     canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(fileNameString, 480 - canvas.getCursorX()));
+    canvas.print(fitTextToWidth(fileNameString, 460 - canvas.getCursorX()));
   }
   else
   {
@@ -3513,8 +3630,8 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Folder: ");
     y += lineHeight;
-    printWrappedText(folderNameString, x, y, lineHeight, 480 - x, COLOR_WHITE);
-    y += ((folderNameString.length() / 20) + 1) * lineHeight; // przybliżone zwiększenie y
+    printWrappedText(folderNameString, x, y, lineHeight, 460 - x, COLOR_WHITE);
+    y += ((folderNameString.length() / 20) + 1) * lineHeight;
 
     // Plik
     fileNameString = normalizePolish(fileNameString);
@@ -3522,7 +3639,7 @@ void displayPlayer()
     canvas.setCursor(x, y);
     canvas.print("Plik: ");
     y += lineHeight;
-    printWrappedText(fileNameString, x, y, lineHeight, 480 - x, COLOR_WHITE);
+    printWrappedText(fileNameString, x, y, lineHeight, 460 - x, COLOR_WHITE);
   }
 
   // --- Parametry audio (bitrate, sample rate, bits per sample) ---
@@ -3807,7 +3924,7 @@ void loop()
         tft_pushCanvas(canvas);
         audio.stopSong();
         listDirectories("/");        // Odczyt folderów z katalogu głównego
-        folderSelection = true;      // Teraz jesteśmy w trybie wyboru folderu
+        folderSelection = true;
         Serial.println("Lista folderów gotowa, wybierz folder i zatwierdź OK");
       }
       else
@@ -3815,11 +3932,11 @@ void loop()
         // --- Drugie OK: potwierdzenie wyboru folderu i start odtwarzania ---
         if (folderSelection == true)
         {
-          folderSelection = false;   // wyłącz tryb wyboru
+          folderSelection = false;
           Serial.println("Start odtwarzania folderu");
-          volumeValue = 15;            // Ustaw domyślną głośność dla plików
+          volumeValue = 15;            
           audio.setVolume(volumeValue);
-          playFromSelectedFolder();  // uruchom odtwarzanie
+          playFromSelectedFolder();
         }
       }
     }
@@ -3963,6 +4080,5 @@ void loop()
     Serial.println("Timeout: powrót do głównego ekranu radia");
     displayRadio();
   }
-
 
 }
