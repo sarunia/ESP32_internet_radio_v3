@@ -50,8 +50,8 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 
 #define MAX_STATIONS 99           // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
-#define MAX_DIRECTORIES 128       // Maksymalna liczba katalogów
-#define MAX_FILES 128             // Maksymalna liczba plików w katalogu
+#define MAX_DIRECTORIES 192       // Maksymalna liczba katalogów
+#define MAX_FILES 192             // Maksymalna liczba plików w katalogu
 
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
@@ -2169,7 +2169,7 @@ void displayRadio()
     mainName.trim(); // Usuń ewentualne spacje z początku i końca
 
     canvas.setFont(&FreeSansBold18pt7b);   // Ustawienie dużej czcionki dla nazwy stacji
-    canvas.setTextColor(COLOR_RED);        // Kolor nazwy stacji
+    canvas.setTextColor(COLOR_CYAN);        // Kolor nazwy stacji
     canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
     canvas.println(mainName);              // Wyświetlenie nazwy stacji
 
@@ -2211,12 +2211,12 @@ void displayRadio()
     canvas.print(volumeDisplay);          // Wyświetlenie głośności
 
     // Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.)
-    canvas.setTextColor(COLOR_RED); // Kolor tekstu
+    canvas.setTextColor(COLOR_SPRINGGREEN); // Kolor tekstu
     canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
     canvas.print(fileType);               // Wyświetlenie typu pliku
 
     // Wysyłanie całego canvasu na ekran TFT
-    tft_pushCanvas(canvas);
+    //tft_pushCanvas(canvas);
   }
 }
 
@@ -3245,6 +3245,7 @@ void playFromSelectedFolder()
       // Przewijanie folderów (FAV+/FAV- użyte w trybie PLAY_FILES jako scroll folderów)
       if (IRbankDown)
       {
+        folderIndex = previous_folderIndex;
         IRbankDown = false;
         displayActive = true;
         displayStartTime = millis();
@@ -3255,6 +3256,7 @@ void playFromSelectedFolder()
       }
       if (IRbankUp)
       {
+        folderIndex = previous_folderIndex;
         IRbankUp = false;
         displayActive = true;
         displayStartTime = millis();
@@ -3295,6 +3297,7 @@ void playFromSelectedFolder()
         fileSelection = true;
         scrollDownFiles();
         fileIndex = currentSelection;
+        folderIndex = previous_folderIndex;
         displayFiles();
       }
 
@@ -3306,6 +3309,7 @@ void playFromSelectedFolder()
         fileSelection = true;
         scrollUpFiles();
         fileIndex = currentSelection;
+        folderIndex = previous_folderIndex;
         displayFiles();
       }
 
@@ -3318,6 +3322,8 @@ void playFromSelectedFolder()
         folderSelection = false;
         displayActive = false;
         displayStartTime = millis();
+        fileIndex = previous_fileIndex;
+        folderIndex = previous_folderIndex;
         Serial.println("Timeout: powrót do głównego ekranu playera");
         displayPlayer();
       }
@@ -3664,12 +3670,12 @@ void displayPlayer()
   canvas.print(volumeDisplay);          // Wyświetlenie głośności
 
   // --- Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.) ---
-  canvas.setTextColor(COLOR_TURQUOISE); // Kolor tekstu
+  canvas.setTextColor(COLOR_SPRINGGREEN); // Kolor tekstu
   canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
   canvas.print(fileType);               // Wyświetlenie typu pliku
 
   // --- Wysyłanie całego canvasu na ekran TFT ---
-  tft_pushCanvas(canvas);
+  //tft_pushCanvas(canvas);
 
 }
 
