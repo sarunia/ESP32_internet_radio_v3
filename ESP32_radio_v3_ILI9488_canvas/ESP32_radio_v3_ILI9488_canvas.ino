@@ -12,7 +12,7 @@
 #include <WiFiManager.h>          // Biblioteka do zarządzania konfiguracją sieci WiFi, opis jak ustawić połączenie WiFi przy pierwszym uruchomieniu jest opisany tu: https://github.com/tzapu/WiFiManager
 #include <ArduinoJson.h>          // Biblioteka do parsowania i tworzenia danych w formacie JSON, użyteczna do pracy z API
 #include <Time.h>                 // Biblioteka do obsługi funkcji związanych z czasem, np. odczytu daty i godziny
-#include "Audio.h"                // Biblioteka do obsługi funkcji związanych z dźwiękiem *********** audio wersja 3.3.0 - nie aktualizować !!!
+#include "Audio.h"                // Biblioteka do obsługi funkcji związanych z dźwiękiem
 #include "SD.h"                   // Biblioteka do obsługi kart SD
 #include "FS.h"                   // Biblioteka do obsługi systemu plików
 #include "SPI.h"                  // Biblioteka do obsługi komunikacji SPI (ekran TFT, karta SD itp.)
@@ -29,7 +29,7 @@
 // Rozdzielczość wyświetlacza TFT (dla ILI9488 to 480x320)
 #define TFT_WIDTH   480   // Szerokość ekranu w pikselach
 #define TFT_HEIGHT  320   // Wysokość ekranu w pikselach
-GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu w pamięci RAM przed wysłaniem na TFT (płynniejsze odświeżanie)
+GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu w pamięci RAM przed wysłaniem na TFT
 
 // Definicje pinów dla SPI czytnika kart SD
 #define SD_SCK     45             // Pin SCK dla karty SD
@@ -103,19 +103,14 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 #define COLOR_OLIVE       RGB565(128, 128, 0)    // Oliwkowy (olive)
 #define COLOR_MAROON      RGB565(128, 0, 0)      // Ciemnoczerwony (maroon)
 
-
-#define DISPLAY_TIMEOUT  12000         // czas wygaszenia ekranu = 12 sekund
+#define DISPLAY_TIMEOUT  12000    // Czas powrotu po bezczynności = 12 sekund
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
 int previous_station_nr = 0;      // Numer stacji radiowej przechowywanej w buforze do przywrócenia na ekran po bezczynności
 int bank_nr;                      // Numer aktualnie wybranego banku stacji z listy
-int previous_bank_nr = 0;         // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności
-int CLK_state1;                   // Aktualny stan CLK enkodera prawego
-int prev_CLK_state1;              // Poprzedni stan CLK enkodera prawego    
-int CLK_state2;                   // Aktualny stan CLK enkodera lewego
-int prev_CLK_state2;              // Poprzedni stan CLK enkodera lewego          
+int previous_bank_nr = 0;         // Numer aktualnie wybranego banku stacji z listy do przywrócenia na ekran po bezczynności       
 int stationsCount = 0;            // Aktualna liczba przechowywanych stacji w tablicy
 int folderCount = 0;              // Licznik folderów na karcie SD
 int filesCount = 0;               // Licznik plików w danym folderze na karcie SD
@@ -127,8 +122,7 @@ int volumeValue = 12;             // Wartość głośności, domyślnie ustawion
 int volumeArray[100];             // Wartości głośności dla 100 stacji w każdym banku
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 6;          // Maksymalna liczba widocznych linii na ekranie OLED
-
-const int maxVisibleFolders = 6;  // Maksymalna liczba folderów widocznych na ekranie w danym momencie
+int maxVisibleFolders = 6;        // Maksymalna liczba folderów widocznych na ekranie w danym momencie
 
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
@@ -137,8 +131,6 @@ int messageIndex = 0;               // Indeks aktualnie wyświetlanej wiadomośc
 int namedayLineIndex = 0;           // Indeks aktualnie wyświetlanej linii imienin
 std::vector<String> namedayLines;   // Wektor z gotowymi liniami tekstu imienin
 
-bool encoderButton1 = false;      // Flaga określająca, czy przycisk enkodera 1 został wciśnięty
-bool encoderButton2 = false;      // Flaga określająca, czy przycisk enkodera 2 został wciśnięty
 bool fileEnd = false;             // Flaga sygnalizująca koniec odtwarzania pliku audio
 bool displayActive = false;       // Flaga określająca, czy wyświetlacz jest aktywny
 bool isPlaying = false;           // Flaga określająca, czy obecnie trwa odtwarzanie
@@ -155,7 +147,6 @@ bool weatherServerConnection = false;  // Flaga określająca połączenie z ser
 bool folderSelection = false;     // Flaga określająca wyświetlanie listy folderów z karty SD
 bool fileSelection = false;       // Flaga określająca wyświetlanie listy plików z aktualnego folderu
 bool bankSwitch = false;          // Flaga określająca aktywny tryb wybierania numeru banku
-bool stationInfoPending = false;  // Flaga sygnalizująca, że informacje o stacji czekają na wyświetlenie/przetworzenie
 
 // Definicje flag do obsługi z pilota zdalnego sterowania z protokołu NEC 38kHz
 bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
@@ -174,15 +165,9 @@ bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterow
 bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
 bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
-
-
-unsigned long debounceDelay = 300;        // Czas trwania debouncingu w milisekundach
-unsigned long displayTimeout = 6000;      // Czas wyświetlania komunikatu na ekranie w milisekundach
+bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
-unsigned long stationInfoTimer = 0;       // Zmienna przechowuje czas (millis) ostatniego uruchomienia timera informacji o stacji
-unsigned char *psramData;                 // Wskaźnik do przechowywania danych stacji w pamięci PSRAM
-unsigned int PSRAM_lenght = MAX_STATIONS * (STATION_NAME_LENGTH) + MAX_STATIONS; // Deklaracja długości pamięci PSRAM
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -203,7 +188,6 @@ String yearString;                     // Rok wydania utworu (odczytany z metada
 
 unsigned long trackStartMillis = 0;    // Czas w milisekundach, kiedy rozpoczęto odtwarzanie bieżącego utworu
 String fileTime = "00h:00m:00s";       // Aktualny czas trwania odtwarzanego utworu w formacie hh:mm:ss
-
 
 String fileNameString;                 // Nazwa aktualnie odtwarzanego pliku
 String folderNameString;               // Nazwa folderu, w którym znajduje się plik
@@ -237,7 +221,8 @@ volatile bool updateClockFlag = false;  // flaga do odświeżania zegara
 
 void IRAM_ATTR timerCallback()
 {
-  updateClockFlag = true;  // tylko ustaw flagę w przerwaniu
+  updateClockFlag = true;  // Tylko ustaw flagę w przerwaniu
+  //drawClock();
 }
 
 WiFiClient client;                        // Obiekt do obsługi połączenia WiFi dla klienta HTTP
@@ -315,6 +300,7 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdBankUp       0x001B   // Przycisk FF+ - lista banków / lista folderów - krok w dół na przewijanej liście
 #define rcCmdBankDown     0x0017   // Przycisk FF- lista banków / lista folderów - krok do góry na przewijanej liście
 #define rcCmdPauseResume  0x0012   // Przycisk Play / Pause
+#define rcCmdFolderList   0x004E   // Przycisk GOTO - wyświetlenie listy folderów z zaznaczeniem aktualnego folderu
 
 String inputBuffer = "";       // Bufor na wciśnięte cyfry
 unsigned long inputStartTime;  // Czas rozpoczęcia wpisywania numeru
@@ -442,187 +428,121 @@ uint32_t reverse_bits(uint32_t inval, int bits)
   return 0;
 }
   
-// Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
+// ------------------------------------------------------------
+// Funkcja przypisująca odpowiednie flagi do przycisków pilota
+// ------------------------------------------------------------
 void processIRCode()
 {
-  if (bit_count == 32)  // Jeśli poskładany pełny ciąg 4 bajtów
+  if (bit_count == 32 && ir_code != 0)
   {
-    if (ir_code != 0)
+    detachInterrupt(recv_pin);
+    Serial.print("Kod NEC OK: ");
+    Serial.print(ir_code, HEX);
+
+    ir_code = reverse_bits(ir_code, 32); // zmiana z LSB-MSB na MSB-LSB
+    Serial.print("  MSB-LSB: ");
+    Serial.println(ir_code, HEX);
+
+    uint8_t CMD = (ir_code >> 16) & 0xFF;
+    uint8_t ADDR = ir_code & 0xFF;
+    ir_code = (ADDR << 8) | CMD; // końcowy kod
+
+    attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
+
+    // --- Mapowanie przycisków ---
+    if      (ir_code == rcCmdArrowRight) IRrightArrow = true;
+    else if (ir_code == rcCmdArrowLeft)  IRleftArrow  = true;
+    else if (ir_code == rcCmdArrowUp)    IRupArrow    = true;
+    else if (ir_code == rcCmdArrowDown)  IRdownArrow  = true;
+    else if (ir_code == rcCmdMode)       IRmenuButton = true;
+    else if (ir_code == rcCmdHome)       IRhomeButton = true;
+    else if (ir_code == rcCmdVolumeUp)   IRvolumeUp   = true;
+    else if (ir_code == rcCmdVolumeDown) IRvolumeDown = true;
+    else if (ir_code == rcCmdBankUp)     IRbankUp     = true;
+    else if (ir_code == rcCmdBankDown)   IRbankDown   = true;
+    else if (ir_code == rcCmdPauseResume) IRpauseResume = true;
+    else if (ir_code == rcCmdMute)       IRmuteTrigger = true;
+    else if (ir_code == rcCmdFolderList) folderList   = true;
+
+    // --- Przyciski numeryczne ---
+    else if (ir_code == rcCmdKey0) handleDigitInput(0);
+    else if (ir_code == rcCmdKey1) handleDigitInput(1);
+    else if (ir_code == rcCmdKey2) handleDigitInput(2);
+    else if (ir_code == rcCmdKey3) handleDigitInput(3);
+    else if (ir_code == rcCmdKey4) handleDigitInput(4);
+    else if (ir_code == rcCmdKey5) handleDigitInput(5);
+    else if (ir_code == rcCmdKey6) handleDigitInput(6);
+    else if (ir_code == rcCmdKey7) handleDigitInput(7);
+    else if (ir_code == rcCmdKey8) handleDigitInput(8);
+    else if (ir_code == rcCmdKey9) handleDigitInput(9);
+
+    // --- Przycisk OK ---
+    else if (ir_code == rcCmdOk)
     {
-      detachInterrupt(recv_pin);
-      Serial.print("Kod NEC OK: ");
-      Serial.print(ir_code, HEX);
-      ir_code = reverse_bits(ir_code, 32);   // Rotacja bitów zmiana z LSB-MSB na MSB-LSB
-      Serial.print("  MSB-LSB: ");
-      Serial.print(ir_code, HEX);
-
-      uint8_t CMD = (ir_code >> 16) & 0xFF;  // Drugi bajt (inwersja adresu)
-      uint8_t ADDR = ir_code & 0xFF;         // Czwarty bajt (inwersja komendy)
-
-      Serial.print("  ADR:");
-      Serial.print(ADDR, HEX);
-      Serial.print(" CMD:");
-      Serial.println(CMD, HEX);
-      ir_code = ADDR << 8 | CMD;             // Łączymy ADDR i CMD w jedną zmienną 0xDDRCMD
-
-      /*Serial.print("Czasy trwania impulsów:  9ms:");
-      Serial.print(pulse_duration_9ms);
-      Serial.print("  4.5ms:");
-      Serial.print(pulse_duration_4_5ms);
-      Serial.print("  1690us:");
-      Serial.print(pulse_duration_1690us);
-      Serial.print("  560us:");
-      Serial.println(pulse_duration_560us);*/
-
-      attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
-
-      //Serial.print("Kontrola stosu: ");
-
-      // Pobranie minimalnej liczby wolnych słów stosu (każde słowo to 4 bajty)
-      uint32_t stackSizeInBytes = uxTaskGetStackHighWaterMark(NULL) * 4;
-
-      // Sprawdzenie, czy liczba bajtów jest większa niż 1024, aby przeliczyć na kilobajty z dokładnością do 2 miejsc po przecinku
-      if (stackSizeInBytes > 1024)
+      if (inputActive && inputBuffer.length() > 0)
       {
-        float stackSizeInKB = stackSizeInBytes / 1024.0;  // Przeliczenie na kilobajty (float dla precyzji)
-        //Serial.print(stackSizeInKB, 2);  // Wydruk z dokładnością do 2 miejsc po przecinku
-        //Serial.println(" KB");
-      }
-      else
-      {
-        //Serial.print(stackSizeInBytes);  // Wydruk w bajtach
-        //Serial.println(" bajtów");
-      }
+        int chosenNumber = inputBuffer.toInt();
 
-      // Rozpoznawanie przycisków pilota na podstawie kodu i ustawianie flag użycia
-      if (ir_code == rcCmdArrowRight)        // Przycisk w prawo
-      { 
-        IRrightArrow = true;
-      } 
-      else if (ir_code == rcCmdArrowLeft)    // Przycisk w lewo
-      {  
-        IRleftArrow = true;
-      }
-      else if (ir_code == rcCmdArrowUp)      // Przycisk w górę
-      {  
-        IRupArrow = true;
-      }
-      else if (ir_code == rcCmdArrowDown)    // Przycisk w dół
-      {  
-        IRdownArrow = true;
-      }
-      else if (ir_code == rcCmdMode)         // Przycisk MODE
-      {  
-        IRmenuButton = true;
-      }
-      else if (ir_code == rcCmdHome)         // Przycisk MOME
-      {  
-        IRhomeButton = true;
-      }
-      else if (ir_code == rcCmdOk) // Przycisk OK
-      {
-        if (inputActive && inputBuffer.length() > 0)
+        if (currentOption == INTERNET_RADIO)
         {
-          int chosenNumber = inputBuffer.toInt();
-
-          // Stacje radiowe
-          if (currentOption == INTERNET_RADIO)
+          if (chosenNumber >= 1 && chosenNumber <= stationsCount)
           {
-            if (chosenNumber >= 1 && chosenNumber <= stationsCount)
+            station_nr = chosenNumber;
+            currentSelection = station_nr - 1;
+            firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
+            displayStations();
+          }
+        }
+
+        if (currentOption == PLAY_FILES)
+        {
+          if (folderSelection)
+          {
+            int chosenFolder = chosenNumber - 1;
+            if (chosenFolder >= 0 && chosenFolder < folderCount)
             {
-              station_nr = chosenNumber;
-              currentSelection = station_nr - 1;
+              folderIndex = chosenFolder;
+              currentSelection = folderIndex;
               firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
-              displayStations();
+              displayFolders();
             }
           }
-
-          // Pliki audio
-          if (currentOption == PLAY_FILES)
+          else
           {
-            if (folderSelection)
+            int chosenFile = chosenNumber - 1;
+            if (chosenFile >= 0 && chosenFile < filesCount)
             {
-              // Wpisany numer wybiera folder
-              int chosenFolder = chosenNumber - 1;
-              if (chosenFolder >= 0 && chosenFolder < folderCount)
-              {
-                folderIndex = chosenFolder;
-                currentSelection = folderIndex;
-                folderSelection = false;
-                fileSelection = true;
-                displayFolders();
-              }
-            }
-            else if (fileSelection)
-            {
-              // Wpisany numer wybiera plik
-              int chosenFile = chosenNumber - 1;
-              if (chosenFile >= 0 && chosenFile < filesCount)
-              {
-                fileIndex = chosenFile;
-                currentSelection = fileIndex;
-                displayFiles();
-              }
+              fileIndex = chosenFile;
+              currentSelection = fileIndex;
+              firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
+              displayFiles();
             }
           }
-
-          inputBuffer = "";
-          inputActive = false;
         }
-        else
-        {
-          // Normalne działanie przycisku OK
-          IRokButton = true;
-        }
-      }
-      else if (ir_code == rcCmdVolumeUp)     // Przycisk VOL+
-      {  
-        IRvolumeUp = true;
-      }
-      else if (ir_code == rcCmdVolumeDown)   // Przycisk VOL-
-      {  
-        IRvolumeDown = true;
-      }
-      else if (ir_code == rcCmdBankUp)       // Przycisk FAV+
-      {  
-        IRbankUp = true;
-      }
-      else if (ir_code == rcCmdBankDown)     // Przycisk FAV-
-      {  
-        IRbankDown = true;
-      }
-      else if (ir_code == rcCmdPauseResume)  // Przycisk Play / Pause
-      {
-        IRpauseResume = true;
-      }
-      else if (ir_code == rcCmdMute)         // Przycisk Mute
-      {
-        IRmuteTrigger = true;
-      }
 
-      else if (ir_code == rcCmdKey0) { handleDigitInput(0); }
-      else if (ir_code == rcCmdKey1) { handleDigitInput(1); }
-      else if (ir_code == rcCmdKey2) { handleDigitInput(2); }
-      else if (ir_code == rcCmdKey3) { handleDigitInput(3); }
-      else if (ir_code == rcCmdKey4) { handleDigitInput(4); }
-      else if (ir_code == rcCmdKey5) { handleDigitInput(5); }
-      else if (ir_code == rcCmdKey6) { handleDigitInput(6); }
-      else if (ir_code == rcCmdKey7) { handleDigitInput(7); }
-      else if (ir_code == rcCmdKey8) { handleDigitInput(8); }
-      else if (ir_code == rcCmdKey9) { handleDigitInput(9); }
-
+        inputBuffer = "";
+        inputActive = false;
+      }
       else
       {
-        Serial.println("Inny przycisk");
+        IRokButton = true; // normalne działanie OK
       }
-
-      ir_code = 0;
-      bit_count = 0;
     }
+
+    else
+    {
+      Serial.println("Nieznany przycisk.");
+    }
+
+    ir_code = 0;
+    bit_count = 0;
   }
 }
 
 
+// -------------------------------------------------------------------
+// Obsługa cyfr wpisywanych z pilota (dla wyboru stacji/pliku/folderu)
+// -------------------------------------------------------------------
 void handleDigitInput(int digit)
 {
   if (!inputActive)
@@ -633,49 +553,65 @@ void handleDigitInput(int digit)
     displayStartTime = millis();
   }
 
-  if (inputBuffer.length() < 2)
-  {   // max 2 cyfry
+  int maxDigits = 2;
+  if ((currentOption == PLAY_FILES && filesCount > 99) || (currentOption == PLAY_FILES && folderCount > 99))
+  {
+    maxDigits = 3;
+  }
+
+  if (inputBuffer.length() < maxDigits)
+  {
     inputBuffer += String(digit);
   }
 
-  Serial.print("Wprowadzono: ");
-  Serial.println(inputBuffer);
+  Serial.printf("Wprowadzono: %s\n", inputBuffer.c_str());
 
-  // pokaż na ekranie wpisany numer
+  // --- Wyświetlanie numeru na ekranie ---
+  canvas.fillRect(0, 0, 480, 35, COLOR_BLACK);
+  canvas.setFont(&FreeMonoBold12pt7b);
+
   if (currentOption == INTERNET_RADIO)
   {
-    canvas.fillRect(210, 285, 40, 35, COLOR_BLACK);  // wyczyść pole
-    canvas.setFont(&FreeMonoBold12pt7b);
+    canvas.fillRect(0, 0, 480, 40, COLOR_BLACK);
+    String header = "WYBIERZ STACJE 1-" + String(stationsCount);
     canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(210, 310);
-    canvas.print(inputBuffer);
-    tft_pushCanvas(canvas);
+    canvas.setCursor(0, 25);
+    canvas.print(header);
   }
-
-  if (currentOption == PLAY_FILES)
+  else if (currentOption == PLAY_FILES && !folderSelection)
   {
-    // Nagłówek stały
-    String header = "WYBIERZ PLIK Z ZAKRESU 1-" + String(filesCount) + "  ";
-    canvas.fillRect(0, 0, 480, 35, COLOR_BLACK);  // wyczyść pole
-    canvas.setFont(&FreeMonoBold12pt7b);
+    String header = "WYBIERZ PLIK 1-" + String(filesCount);
     canvas.setTextColor(COLOR_CYAN);
     canvas.setCursor(0, 25);
     canvas.print(header);
+  }
+  else if (currentOption == PLAY_FILES && folderSelection)
+  {
+    String header = "WYBIERZ FOLDER 1-" + String(folderCount);
+    canvas.setTextColor(COLOR_CYAN);
+    canvas.setCursor(0, 25);
+    canvas.print(header);
+  }
 
-    // Input w innym kolorze (CYAN)
-    int16_t x1, y1;
-    uint16_t w, h;
-    canvas.getTextBounds(header, 0, 25, &x1, &y1, &w, &h);
-    canvas.setTextColor(COLOR_GREEN);
-    canvas.setCursor(w + 5, 25);   // +5 odstęp po nagłówku
-    canvas.print(inputBuffer);
+  // Pokaż wpisany numer w kolorze zielonym
+  int16_t x1, y1;
+  uint16_t w, h;
+  canvas.getTextBounds("WYBIERZ", 0, 25, &x1, &y1, &w, &h);
+  canvas.setTextColor(COLOR_GREEN);
+  canvas.setCursor(w + 200, 25);
+  canvas.print(inputBuffer);
+  tft_pushCanvas(canvas);
 
-    tft_pushCanvas(canvas);
-
-    fileIndex = inputBuffer.toInt() - 1; // konwersja na indeks 0-based
-    fileSelection = true;
+  // Aktualizacja wskaźników
+  if (currentOption == PLAY_FILES)
+  {
+    if (folderSelection)
+      folderIndex = constrain(inputBuffer.toInt() - 1, 0, folderCount - 1);
+    else
+      fileIndex = constrain(inputBuffer.toInt() - 1, 0, filesCount - 1);
   }
 }
+
 
 
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
@@ -2291,10 +2227,10 @@ void scrollDown()
     firstVisibleLine = stationsCount - maxVisibleLines;
 
   // Debug
-      Serial.print("Scroll Down: currentSelection = ");
-      Serial.println(currentSelection);
-      Serial.print("Scroll Down: firstVisibleLine = ");
-      Serial.println(firstVisibleLine);
+  Serial.print("Scroll Down: currentSelection = ");
+  Serial.println(currentSelection);
+  Serial.print("Scroll Down: firstVisibleLine = ");
+  Serial.println(firstVisibleLine);
 }
 
 
@@ -2577,7 +2513,7 @@ void my_audio_info(Audio::msg_t m)
       int readingFileIndex = msg.indexOf("Reading file:");
       if (readingFileIndex != -1)
       {
-        // reset parametrów audio dla nowego pliku
+        // Reset parametrów audio dla nowego pliku
         bitrateString = "";
         sampleRateString = "";
         bitsPerSampleString = "";
@@ -2967,6 +2903,8 @@ int compareStringsWithNumbers(const String &a, const String &b)
 // Funkcja do wyświetlania folderów na ekranie z uwzględnieniem zaznaczenia
 void displayFolders()
 {
+  fileSelection = false;
+  folderSelection = true;
   canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
 
   int displayIndex = 0;
@@ -3090,6 +3028,7 @@ void playFromSelectedFolder()
   // Ustawienia startowe
   fileSelection = false;
   folderSelection = false;
+  folderList = false;
   folderNameString = directories[folderIndex];
   Serial.println("Odtwarzanie plików z wybranego folderu: " + folderNameString);
 
@@ -3201,7 +3140,7 @@ void playFromSelectedFolder()
       {
         IRmenuButton = false;
         menuRequested = true;
-        Serial.println("MENU requested - wychodzę z playera");
+        Serial.println("Włączenie MENU wyboru źródła dźwięku - wychodzę z playera");
         audio.stopSong();
         isPlaying = false;
         break;
@@ -3242,31 +3181,7 @@ void playFromSelectedFolder()
         break;
       }
 
-      // Przewijanie folderów (FAV+/FAV- użyte w trybie PLAY_FILES jako scroll folderów)
-      if (IRbankDown)
-      {
-        folderIndex = previous_folderIndex;
-        IRbankDown = false;
-        displayActive = true;
-        displayStartTime = millis();
-        folderSelection = true;
-        scrollDownFolders();
-        folderIndex = currentSelection - 1;
-        displayFolders();
-      }
-      if (IRbankUp)
-      {
-        folderIndex = previous_folderIndex;
-        IRbankUp = false;
-        displayActive = true;
-        displayStartTime = millis();
-        folderSelection = true;
-        scrollUpFolders();
-        folderIndex = currentSelection - 1;
-        displayFolders();
-      }
-
-      // Zatwierdzenie wyboru folderu
+      // Zatwierdzenie wyboru folderu -> odtwarzaj wybrany (podświetlony) folder
       if (IRokButton && folderSelection)
       {
         IRokButton = false;
@@ -3274,8 +3189,19 @@ void playFromSelectedFolder()
         displayActive = false;
         audio.stopSong();
         isPlaying = false;
-        playNextFolder = true;
-        break;
+
+        // Ustaw folderIndex na aktualne zaznaczenie
+        folderIndex = constrain(currentSelection, 0, folderCount - 1);
+        fileIndex = 0;
+
+        // Zabezpieczenie: zamknij katalog przed rekurencyjnym wywołaniem
+        root.close();
+
+        Serial.printf("Zatwierdzono folder: %d -> %s\n", folderIndex + 1, directories[folderIndex].c_str());
+
+        // Rozpocznij odtwarzanie z wybranego folderu
+        playFromSelectedFolder();
+        return; // nie kontynuuj starej pętli
       }
 
       // Zatwierdzenie wyboru pliku
@@ -3289,28 +3215,78 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (IRdownArrow == true)  // Dolny przycisk kierunkowy
-      {
-        IRdownArrow = false;
-        displayActive = true;
-        displayStartTime = millis();
-        fileSelection = true;
-        scrollDownFiles();
-        fileIndex = currentSelection;
-        folderIndex = previous_folderIndex;
-        displayFiles();
-      }
 
-      if (IRupArrow == true)  // Górny przycisk kierunkowy
+      // --- OBSŁUGA STRZAŁEK GÓRA / DÓŁ (z wrap-around i aktualizacją okna) ---
+      if (IRupArrow)
       {
         IRupArrow = false;
         displayActive = true;
         displayStartTime = millis();
-        fileSelection = true;
-        scrollUpFiles();
-        fileIndex = currentSelection;
-        folderIndex = previous_folderIndex;
-        displayFiles();
+
+        if (folderSelection)
+        {
+          if (folderCount > 0)
+          {
+            if (currentSelection > 0) currentSelection--;
+            else currentSelection = folderCount - 1;
+            folderIndex = currentSelection;
+            if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
+            if (currentSelection >= firstVisibleLine + maxVisibleLines) firstVisibleLine = currentSelection - maxVisibleLines + 1;
+          }
+          displayFolders();
+        }
+        else
+        {
+          fileSelection = true;
+          scrollUpFiles();
+          fileIndex = currentSelection;
+          folderIndex = previous_folderIndex;
+          displayFiles();
+        }
+      }
+
+      if (IRdownArrow)
+      {
+        IRdownArrow = false;
+        displayActive = true;
+        displayStartTime = millis();
+
+        if (folderSelection)
+        {
+          if (folderCount > 0)
+          {
+            if (currentSelection < folderCount - 1) currentSelection++;
+            else currentSelection = 0;
+            folderIndex = currentSelection;
+            if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
+            if (currentSelection >= firstVisibleLine + maxVisibleLines) firstVisibleLine = currentSelection - maxVisibleLines + 1;
+          }
+          displayFolders();
+        }
+        else
+        {
+          fileSelection = true;
+          scrollDownFiles();
+          fileIndex = currentSelection;
+          folderIndex = previous_folderIndex;
+          displayFiles();
+        }
+      }
+
+      // Jeśli aktywne wyświetlenie listy folderów
+      if (folderList)
+      {
+        folderList = false;
+        folderSelection = true;
+        displayActive = true;
+        displayStartTime = millis();
+
+        currentSelection = constrain(folderIndex, 0, folderCount - 1);
+        firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
+
+        Serial.printf("Lista folderów -> currentSelection=%d firstVisibleLine=%d\n", currentSelection, firstVisibleLine);
+
+        displayFolders();
       }
 
       // Powrót do wyświetlania playera po bezczynności
@@ -3320,6 +3296,7 @@ void playFromSelectedFolder()
         inputActive = false;
         fileSelection = false;
         folderSelection = false;
+        folderList = false;
         displayActive = false;
         displayStartTime = millis();
         fileIndex = previous_fileIndex;
@@ -3331,7 +3308,7 @@ void playFromSelectedFolder()
 
     } // koniec while(isPlaying)
 
-    // jeśli menu został wywołany wewnątrz, przerwij odtwarzanie i wyjdź
+    // Jeśli przycisk MENU menu został wywołany wewnątrz, przerwij odtwarzanie i wyjdź
     if (menuRequested)
     {
       // Zamknij katalog i pokaż menu (przejście do wyboru źródła)
@@ -3423,7 +3400,7 @@ void scrollDownFiles()
     if (firstVisibleLine > filesCount - 6) firstVisibleLine = filesCount - 6;
   }
 
-  displayFiles();
+  //displayFiles();
 }
 
 // Przewijanie listy plików w górę
@@ -3445,13 +3422,15 @@ void scrollUpFiles()
     if (firstVisibleLine < 0) firstVisibleLine = 0;
   }
 
-  displayFiles();
+  //displayFiles();
 }
 
 
 // Wyświetlanie przewijalnej listy plików z podświetleniem
 void displayFiles()
 {
+  fileSelection = true;
+  folderSelection = false;
   if (filesCount <= 0)
   {
     Serial.println("Brak plików do wyświetlenia!");
@@ -3922,7 +3901,6 @@ void loop()
         // Wyczyść obszar w canvas
         canvas.fillRect(0, 0, 480, 225, COLOR_BLACK);
 
-        // nagłówek MENU
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_CYAN);
         canvas.setCursor(0, 25);
@@ -3946,11 +3924,9 @@ void loop()
         }
       }
     }
-
-
   }
 
-  // Przycisk pilota FF+ zwiększanie numeru banku lub przewijanie w górę listy folderów
+  // Przycisk pilota FF+ zwiększanie numeru banku
   if (IRbankUp == true)
   {
     if (currentOption == INTERNET_RADIO)
@@ -3972,19 +3948,9 @@ void loop()
       canvas.print(bank_nr);
       tft_pushCanvas(canvas);
     }
-    if (currentOption == PLAY_FILES)
-    {
-      IRbankUp = false;
-      fileSelection = false;
-      folderSelection = true;
-      displayActive = true;
-      displayStartTime = millis();
-      scrollUpFolders();
-      folderIndex = currentSelection;
-    }
   }
 
-  // Przycisk pilota FF- zmniejszanie numeru banku lub przewijanie w dół listy folderów
+  // Przycisk pilota FF- zmniejszanie numeru banku
   if (IRbankDown == true)
   {
     if (currentOption == INTERNET_RADIO)
@@ -4006,48 +3972,58 @@ void loop()
       canvas.print(bank_nr);
       tft_pushCanvas(canvas);
     }
+  }
+
+  if (IRupArrow == true)  // Górny przycisk kierunkowy
+  {
+    IRupArrow = false;
+    displayActive = true;
+    displayStartTime = millis();
+
+    if (currentOption == INTERNET_RADIO)
+    {
+      stationsList = true;
+      bank_nr = previous_bank_nr;
+      scrollUp(); 
+      station_nr = currentSelection + 1;
+      Serial.print("Numer stacji do tyłu: ");
+      Serial.println(station_nr);
+      displayStations();
+    }
+
     if (currentOption == PLAY_FILES)
     {
-      IRbankDown = false;
-      fileSelection = false;
-      folderSelection = true;
-      displayActive = true;
-      displayStartTime = millis();
-      scrollDownFolders();
       folderIndex = currentSelection;
+      Serial.print("Numer folderu do tyłu: ");
+      Serial.println(folderIndex);
+      scrollUpFolders();
     }
   }
 
   if (IRdownArrow == true)  // Dolny przycisk kierunkowy
   {
     IRdownArrow = false;
-    stationsList = true;
-    bank_nr = previous_bank_nr;
     displayActive = true;
     displayStartTime = millis();
 
-    scrollDown(); 
-    station_nr = currentSelection + 1;
-    Serial.print("Numer stacji do przodu: ");
-    Serial.println(station_nr);
+    if (currentOption == INTERNET_RADIO)
+    {
+      stationsList = true;
+      bank_nr = previous_bank_nr;
+      scrollDown(); 
+      station_nr = currentSelection + 1;
+      Serial.print("Numer stacji do przodu: ");
+      Serial.println(station_nr);
+      displayStations();
+    }
 
-    displayStations();
-  }
-
-  if (IRupArrow == true)  // Górny przycisk kierunkowy
-  {
-    IRupArrow = false;
-    stationsList = true;
-    bank_nr = previous_bank_nr;
-    displayActive = true;
-    displayStartTime = millis();
-
-    scrollUp(); 
-    station_nr = currentSelection + 1;
-    Serial.print("Numer stacji do tyłu: ");
-    Serial.println(station_nr);
-
-    displayStations();
+    if (currentOption == PLAY_FILES)
+    {
+      folderIndex = currentSelection;
+      Serial.print("Numer folderu do przodu: ");
+      Serial.println(folderIndex);
+      scrollDownFolders();
+    }
   }
 
   if (IRmenuButton == true)  // Przycisk MODE w pilocie
@@ -4057,6 +4033,7 @@ void loop()
     displayActive = true;
     isPlaying = false;
     displayStartTime = millis();
+
     // Przełączanie opcji menu na drugą (cyklicznie)
     if (currentOption == INTERNET_RADIO)
     {
@@ -4066,6 +4043,7 @@ void loop()
     {
       currentOption = INTERNET_RADIO;
     }
+
     displayMenu();
   }
 
