@@ -27,18 +27,44 @@ https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
 ---
 
-### 3️⃣ Zainstaluj wymagane biblioteki
+### 📦 3️⃣ Zainstaluj wymagane biblioteki
 
-| Biblioteka | Wersja | Źródło |
-|-------------|--------|--------|
-| [ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) | **3.4.2** | GitHub |
-| [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) | – | Menedżer bibliotek |
-| [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | – | Menedżer bibliotek |
-| [WiFiManager](https://github.com/tzapu/WiFiManager) | – | GitHub |
-| FreeFonts (FreeSans / FreeMono) | – | Z pakietu Adafruit GFX |
-| Wbudowane: **SD**, **SPI**, **FS**, **Ticker**, **Time** | – | W Arduino IDE |
+Wszystkie biblioteki można pobrać na dwa sposoby:
+- ✅ **Z poziomu Arduino IDE:**  
+`Szkic → Dołącz bibliotekę → Zarządzaj bibliotekami...`
+- 💾 **Lub ręcznie z GitHub:**  
+Pobierz plik `.zip`, a następnie:  
+`Szkic → Dołącz bibliotekę → Dodaj bibliotekę .ZIP`
 
 ---
+
+#### 🔹 Główne biblioteki projektu
+
+| Biblioteka | Opis | Instalacja |
+|-------------|------|------------|
+| **ESP32-audioI2S** (v3.4.2) | Odtwarzanie strumieni i plików audio (MP3, FLAC, AAC, OGG) | [GitHub – ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) |
+| **Adafruit GFX** | Uniwersalna biblioteka graficzna (rysowanie, czcionki) | Menedżer bibliotek |
+| **WiFiManager** | Automatyczne łączenie z Wi-Fi, konfiguracja przez portal | [GitHub – WiFiManager](https://github.com/tzapu/WiFiManager) |
+| **ArduinoJson** | Obsługa plików konfiguracyjnych i danych JSON | Menedżer bibliotek |
+| **Ticker** | Cykliczne wywołania (np. co sekundę) | Menedżer bibliotek |
+| **Time** | Obsługa czasu systemowego | Menedżer bibliotek |
+| **SD**, **SPI**, **FS** | Obsługa kart SD i magistrali SPI | Wbudowane |
+| **EEPROM**, **HTTPClient**, **Arduino.h** | Standardowe biblioteki ESP32 | Wbudowane w pakiet esp32 |
+
+---
+
+### 🔤 4️⃣ Czcionki
+
+Projekt wykorzystuje czcionki **FreeFonts** oraz jedną niestandardową czcionkę cyfrową.  
+📁 Wszystkie czcionki są **dołączone do projektu** – nie wymagają osobnej instalacji.
+
+```cpp
+#include <FreeSans12pt7b.h>       // Sans, 12pt – nagłówki i opisy
+#include <FreeMonoBold12pt7b.h>   // Mono Bold, 12pt – dane liczbowe
+#include <FreeMonoBold18pt7b.h>   // Mono Bold, 18pt – liczniki
+#include <FreeSansBold18pt7b.h>   // Sans Bold, 18pt – wyróżnienia
+#include <FreeMono18pt7b.h>       // Mono, 18pt – siatki danych
+#include <DS_DIGII35pt7b.h>       // Styl 7-segmentowy, 35pt – duży zegar
 
 ## 🌟 Opis projektu (PL)
 
