@@ -79,7 +79,7 @@ Projekt wykorzystuje czcionki **FreeFonts** oraz jedną niestandardową czcionk�
 
 **Internet Radio v3** to nowoczesny projekt odtwarzacza audio i radia internetowego opartego na **ESP32-S3**.  
 Działa w dwóch trybach:
-- 📡 **Internet Radio**
+- 📡 **Radio internetowe**
 - 💾 **Odtwarzacz plików audio z karty SD**
 
 Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odbywa się z pilota IR**. Należy we własnym zakresie przypisać przyciski swojego pilota, korzystajac z Serial terminala:
@@ -116,6 +116,8 @@ Przypisanie adresu i komendy dla każdego przycisku polega na sklejeniu 2 bajtó
 `ADR:0 CMD:4B`
 trzeba skleić do postaci:
 `0x004B`
+Projekt obsługuje **pilot NEC 38 kHz**.  
+Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 
 ---
 
@@ -137,13 +139,6 @@ trzeba skleić do postaci:
 - `/folderIndex.txt`
 - `/fileIndex.txt`
 - ⏱️ Automatyczny powrót do głównego widoku po 12 s bezczynności
-
----
-
-## 🎮 Sterowanie pilotem IR
-
-Projekt obsługuje **pilot NEC 38 kHz**.  
-Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 
 ---
 
@@ -184,7 +179,7 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 | **← / →** | Przełączanie pliku o jeden do przodu lub do tyłu |
 | **OK** | Otwórz folder lub odtwórz plik |
 | **CYFRY 0–9** | Wybór folderu lub pliku (np. „123”) |
-| **GOTO / Wyświetlenie listy folderów |
+| **GOTO** | Wyświetlenie listy folderów |
 | **VOL+ / VOL-** | Regulacja głośności |
 | **SOURCE** | Przejście do wyboru źródła audio |
 | **STOP** | Zatrzymanie odtwarzania i przejście do listy folderów |
