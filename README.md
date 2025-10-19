@@ -58,7 +58,6 @@ Pobierz plik `.zip`, a następnie:
 Projekt wykorzystuje czcionki **FreeFonts** oraz jedną niestandardową czcionkę cyfrową.  
 📁 Wszystkie czcionki są **dołączone do projektu** – nie wymagają osobnej instalacji.
 
-```cpp
 #include <FreeSans12pt7b.h>       // Sans, 12pt – nagłówki i opisy
 #include <FreeMonoBold12pt7b.h>   // Mono Bold, 12pt – dane liczbowe
 #include <FreeMonoBold18pt7b.h>   // Mono Bold, 18pt – liczniki
