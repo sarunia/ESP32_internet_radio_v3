@@ -192,14 +192,14 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 ---
 
 ## 💾 Struktura karty SD
-
+```cpp
 /station_nr.txt ← ostatnia stacja radiowa
 /bank_nr.txt ← ostatni bank
 /folderIndex.txt ← ostatni folder
 /fileIndex.txt ← ostatni plik
 /bank01.txt ... bank18.txt ← listy stacji radiowych
 / ← foldery z plikami audio muszą być w głównym katalogu karty SD
-
+```
 
 ---
 
