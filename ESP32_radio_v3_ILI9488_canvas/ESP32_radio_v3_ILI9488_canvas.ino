@@ -17,6 +17,7 @@
 #include "FS.h"                   // Biblioteka do obsługi systemu plików
 #include "SPI.h"                  // Biblioteka do obsługi komunikacji SPI (ekran TFT, karta SD itp.)
 #include <Adafruit_GFX.h>         // Uniwersalna biblioteka graficzna Adafruit GFX (podstawy rysowania, obsługa czcionek)
+#include "FilePlayer.h"           // Obsługa odtwarzacza plików przeniesiona tutaj
 
 // Definicje pinów dla SPI wyświetlacza TFT typu ILI9488
 #define TFT_CS    5    // Pin CS (Chip Select) – wybór układu TFT
@@ -75,23 +76,21 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Konwersja z 8-bitowego RGB na 16-bit RGB565
 #define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
-// Kolory dla canvas
-#define COLOR_RED        RGB565(255, 0, 0)       // Czerwony
-#define COLOR_GREEN      RGB565(0, 255, 0)       // Zielony
-#define COLOR_BLUE       RGB565(0, 0, 255)       // Niebieski
-#define COLOR_YELLOW     RGB565(255, 255, 0)     // Żółty
-#define COLOR_CYAN       RGB565(0, 255, 255)     // Turkus / błękitny
-#define COLOR_MAGENTA    RGB565(255, 0, 255)     // Magenta (fuksja)
-#define COLOR_ORANGE     RGB565(255, 128, 0)     // Pomarańczowy
-#define COLOR_PURPLE     RGB565(128, 0, 255)     // Fiolet
-#define COLOR_PINK       RGB565(255, 0, 128)     // Różowy
-#define COLOR_LIME       RGB565(128, 255, 0)     // Jasna limonka
-#define COLOR_TURQUOISE  RGB565(0, 128, 255)     // Turkus
-#define COLOR_WHITE      RGB565(255, 255, 255)   // Biały
-#define COLOR_GOLD       RGB565(231, 211, 90)    // Złoty
-#define COLOR_BLACK      RGB565(0, 0, 0)         // Czarny
-
-// Dodatkowe kolory
+// Definicje kolorów
+#define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
+#define COLOR_GREEN       RGB565(0, 255, 0)      // Zielony
+#define COLOR_BLUE        RGB565(0, 0, 255)      // Niebieski
+#define COLOR_YELLOW      RGB565(255, 255, 0)    // Żółty
+#define COLOR_CYAN        RGB565(0, 255, 255)    // Turkus / błękitny
+#define COLOR_MAGENTA     RGB565(255, 0, 255)    // Magenta (fuksja)
+#define COLOR_ORANGE      RGB565(255, 128, 0)    // Pomarańczowy
+#define COLOR_PURPLE      RGB565(128, 0, 255)    // Fiolet
+#define COLOR_PINK        RGB565(255, 0, 128)    // Różowy
+#define COLOR_LIME        RGB565(128, 255, 0)    // Jasna limonka
+#define COLOR_TURQUOISE   RGB565(0, 128, 255)    // Turkus
+#define COLOR_WHITE       RGB565(255, 255, 255)  // Biały
+#define COLOR_GOLD        RGB565(231, 211, 90)   // Złoty
+#define COLOR_BLACK       RGB565(0, 0, 0)        // Czarny
 #define COLOR_SKYBLUE     RGB565(135, 206, 235)  // Jasny niebieski (sky blue)
 #define COLOR_SPRINGGREEN RGB565(0, 255, 127)    // Zielony wiosenny (spring green)
 #define COLOR_DEEPPINK    RGB565(255, 20, 147)   // Intensywny róż (deep pink)
@@ -103,7 +102,7 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 #define COLOR_OLIVE       RGB565(128, 128, 0)    // Oliwkowy (olive)
 #define COLOR_MAROON      RGB565(128, 0, 0)      // Ciemnoczerwony (maroon)
 
-#define DISPLAY_TIMEOUT  12000    // Czas powrotu po bezczynności = 12 sekund
+const unsigned long DISPLAY_TIMEOUT = 12000;
 
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
@@ -147,14 +146,19 @@ bool weatherServerConnection = false;  // Flaga określająca połączenie z ser
 bool folderSelection = false;     // Flaga określająca wyświetlanie listy folderów z karty SD
 bool fileSelection = false;       // Flaga określająca wyświetlanie listy plików z aktualnego folderu
 bool bankSwitch = false;          // Flaga określająca aktywny tryb wybierania numeru banku
+bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
+bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
+bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
+bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
+unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
+unsigned long seconds = 0;                // Licznik sekund timera
 
 // Definicje flag do obsługi z pilota zdalnego sterowania z protokołu NEC 38kHz
 bool IRrightArrow = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w prawo
 bool IRleftArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w lewo
 bool IRupArrow = false;           // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w górę
 bool IRdownArrow = false;         // Flaga określająca użycie zdalnego sterowania z pilota IR - kierunek w dół
-bool IRmenuButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "MODE"
-bool IRhomeButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "HOME"
+bool IRsourceButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk "SOURCE"
 bool IRokButton = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk środkowy "OK"
 bool IRvolumeUp = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL+
 bool IRvolumeDown = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk VOL-
@@ -162,12 +166,10 @@ bool IRbankUp = false;            // Flaga określająca użycie zdalnego sterow
 bool IRbankDown = false;          // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk FAV-
 bool IRpauseResume = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Play / Pause
 bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk Mute
-bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wyciszenie
-bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
-bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
-bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
-unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
-unsigned long seconds = 0;                // Licznik sekund timera
+bool IRstopButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk STOP
+bool IRprogButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk PROG
+bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk MEMORY
+
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -239,11 +241,6 @@ const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do sy
 // Deklaracja obiektu JSON
 StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
 
-enum MenuOption
-{
-  PLAY_FILES,          // Odtwarzacz plików
-  INTERNET_RADIO,      // Radio internetowe
-};
 
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
 
@@ -285,7 +282,6 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdArrowDown    0x0011   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
 #define rcCmdOk           0x0015   // Przycisk OK - zatwierdzenie wybranej stacji / banku / folderu / pliku
 #define rcCmdMode         0x000E   // Przycisk SOURCE - przełączanie radio internetowe / odtwarzacz plików
-#define rcCmdHome         0x000F   // Przycisk SOURCE - uruchomienie wyświetlania kartki z kalendarza na na określony czas
 #define rcCmdMute         0x000A   // Przycisk MUTE - wyciszenie
 #define rcCmdKey0         0x004C   // Przycisk "0"
 #define rcCmdKey1         0x0040   // Przycisk "1"
@@ -301,6 +297,9 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdBankDown     0x0017   // Przycisk FF- lista banków / lista folderów - krok do góry na przewijanej liście
 #define rcCmdPauseResume  0x0012   // Przycisk Play / Pause
 #define rcCmdFolderList   0x004E   // Przycisk GOTO - wyświetlenie listy folderów z zaznaczeniem aktualnego folderu
+#define rcCmdStop         0x0010   // Przycisk STOP
+#define rcCmdProg         0x000F   // Przycisk PROG
+#define rcCmdMemory       0x001F   // Przycisk MEMORY
 
 String inputBuffer = "";       // Bufor na wciśnięte cyfry
 unsigned long inputStartTime;  // Czas rozpoczęcia wpisywania numeru
@@ -445,6 +444,10 @@ void processIRCode()
 
     uint8_t CMD = (ir_code >> 16) & 0xFF;
     uint8_t ADDR = ir_code & 0xFF;
+    Serial.print("  ADR:");
+    Serial.print(ADDR, HEX);
+    Serial.print(" CMD:");
+    Serial.println(CMD, HEX);
     ir_code = (ADDR << 8) | CMD; // końcowy kod
 
     attachInterrupt(digitalPinToInterrupt(recv_pin), pulseISR, CHANGE);
@@ -454,8 +457,7 @@ void processIRCode()
     else if (ir_code == rcCmdArrowLeft)  IRleftArrow  = true;
     else if (ir_code == rcCmdArrowUp)    IRupArrow    = true;
     else if (ir_code == rcCmdArrowDown)  IRdownArrow  = true;
-    else if (ir_code == rcCmdMode)       IRmenuButton = true;
-    else if (ir_code == rcCmdHome)       IRhomeButton = true;
+    else if (ir_code == rcCmdMode)       IRsourceButton = true;
     else if (ir_code == rcCmdVolumeUp)   IRvolumeUp   = true;
     else if (ir_code == rcCmdVolumeDown) IRvolumeDown = true;
     else if (ir_code == rcCmdBankUp)     IRbankUp     = true;
@@ -463,6 +465,9 @@ void processIRCode()
     else if (ir_code == rcCmdPauseResume) IRpauseResume = true;
     else if (ir_code == rcCmdMute)       IRmuteTrigger = true;
     else if (ir_code == rcCmdFolderList) folderList   = true;
+    else if (ir_code == rcCmdStop)       IRstopButton   = true;
+    else if (ir_code == rcCmdProg)       IRprogButton   = true;
+    else if (ir_code == rcCmdMemory)     IRmemoryButton   = true;
 
     // --- Przyciski numeryczne ---
     else if (ir_code == rcCmdKey0) handleDigitInput(0);
@@ -1404,7 +1409,7 @@ void fetchAndDisplayCalendar()
       calendar = weekday + ", " + day + " " + month + " " + year;
       calendar.replace(">", "");  // Usuwamy wszystkie znaki '>'
       
-      Serial.println("Dzisiaj jest: " + calendar);
+      Serial.println("Dzis jest: " + calendar);
       Serial.println("Wschód słońca: " + sunrise);
       Serial.println("Zachód słońca: " + sunset);
       Serial.println("Długość dnia: " + dayLength);
@@ -2330,7 +2335,7 @@ void showCalendarCarousel()
     if (messageIndex == 0)
     {
       calendar = normalizePolish(calendar);
-      msg = "Dzisiaj jest " + calendar + " r";
+      msg = "Dzis jest " + calendar + " r";
       messageIndex++;
     }
     else if (messageIndex == 1)
@@ -2900,66 +2905,6 @@ int compareStringsWithNumbers(const String &a, const String &b)
   return a.length() - b.length();
 }
 
-// Funkcja do wyświetlania folderów na ekranie z uwzględnieniem zaznaczenia
-void displayFolders()
-{
-  fileSelection = false;
-  folderSelection = true;
-  canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
-
-  int displayIndex = 0;
-  if (folderCount > 0)
-  {
-    displayIndex = constrain(currentSelection, 0, folderCount - 1);
-  }
-
-  // Nagłówek
-  String header = "LISTA FOLDEROW   " + String(displayIndex + 1) + " / " + String(folderCount);
-  canvas.setFont(&FreeSans12pt7b);
-  canvas.setTextColor(COLOR_CYAN);
-  canvas.setCursor(50, 25);
-  canvas.print(header);
-
-  int displayRow = 0;  
-  int rowHeight = 30;   // odstęp pionowy między wpisami
-
-  // Wyświetlanie maksymalnie 6 katalogów
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + 6, folderCount); i++)
-  {
-    String fullPath = directories[i];
-
-    if (fullPath != "/System Volume Information")
-    {
-      // Nazwa skrócona (bez aktualnego katalogu "/")
-      String displayedPath = fullPath.substring(currentDirectory.length(), currentDirectory.length() + 42);
-
-      int y = 65 + displayRow * rowHeight;
-
-      // Podświetlenie zaznaczonego katalogu
-      if (i == currentSelection)
-      {
-        canvas.fillRect(0, y - 20, 480, rowHeight, COLOR_ORANGE);
-        canvas.setTextColor(COLOR_BLACK);
-      }
-      else
-      {
-        canvas.setTextColor(COLOR_WHITE);
-      }
-
-      canvas.setCursor(0, y);
-      canvas.print(displayedPath);
-
-      displayRow++;
-    }
-  }
-
-  // Wyślij całość na ekran
-  tft_pushCanvas(canvas);
-  
-  //Serial.printf("displayFolders: folderCount=%d currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", folderCount, currentSelection, firstVisibleLine, folderIndex);
-
-}
-
 
 // Przewijanie listy folderów w górę
 void scrollUpFolders()
@@ -3022,327 +2967,105 @@ void scrollDownFolders()
 }
 
 
-// Funkcja do odtwarzania plików audio z wybranego folderu
-void playFromSelectedFolder()
+void saveFileAndFolderIndexes()
 {
-  // Ustawienia startowe
-  fileSelection = false;
-  folderSelection = false;
-  folderList = false;
-  folderNameString = directories[folderIndex];
-  Serial.println("Odtwarzanie plików z wybranego folderu: " + folderNameString);
-
-  // Otwórz folder
-  File root = SD.open(folderNameString);
-  if (!root)
+  // ---- ZAPIS fileIndex ----
+  if (SD.exists("/fileIndex.txt"))
   {
-    Serial.println("Błąd otwarcia katalogu!");
-    return;
-  }
-
-  // Zbuduj listę plików audio w folderze
-  filesCount = 0;
-  fileIndex = 0;
-  while (true)
-  {
-    File entry = root.openNextFile();
-    if (!entry) break;
-
-    String name = entry.name();
-    if (isAudioFile(name.c_str()))
+    Serial.println("Plik fileIndex.txt już istnieje. Aktualizuję...");
+    myFile = SD.open("/fileIndex.txt", FILE_WRITE);
+    if (myFile)
     {
-      files[filesCount] = String(folderNameString) + "/" + name;
-
-      // Wydrukuj pełną ścieżkę i numer pliku
-      Serial.print("Dodano plik [");
-      Serial.print(filesCount + 1);
-      Serial.print("]: ");
-      Serial.println(files[filesCount]);
-
-      filesCount++;
+      myFile.println(fileIndex);
+      myFile.close();
+      Serial.print("Zapisano fileIndex = ");
+      Serial.println(fileIndex);
     }
-    entry.close();
-  }
-
-  Serial.print("Łącznie znaleziono plików audio: ");
-  Serial.println(filesCount);
-
-  // Jeśli brak plików, zamknij i wróć
-  if (filesCount == 0)
-  {
-    Serial.println("Brak plików audio w folderze: " + folderNameString);
-    root.close();
-    return;
-  }
-
-  // Przygotuj katalog do odczytu od początku (używane przy rewindingu)
-  root.rewindDirectory();
-
-  bool playNextFolder = false;   // flaga: przejście do następnego folderu
-  bool menuRequested = false;    // flaga: żądanie wyjścia do menu (przycisk MENU)
-  bool stopAll = false;          // ewentualne dodatkowe wyjście
-
-  // Główna pętla odtwarzania plików w folderze
-  while (fileIndex < filesCount && !playNextFolder && !menuRequested && !stopAll)
-  {
-    String fullPath = files[fileIndex];
-    Serial.print("Odtwarzanie pliku ");
-    Serial.print(fileIndex + 1);
-    Serial.print("/");
-    Serial.println(filesCount);
-    Serial.println(fullPath);
-
-    // Start odtwarzania
-    audio.connecttoFS(SD, fullPath.c_str());
-    // Zerowanie poprzednich tagów ID3
-    artistString = "";
-    titleString = "";
-    albumString = "";
-    yearString = "";
-    id3tag = false;  // Flaga oznaczająca, że jeszcze nie mamy danych ID3
-
-    trackStartMillis = millis();
-    fileTime = "00h:00m:00s";
-    isPlaying = true;
-    previous_fileIndex = fileIndex;
-    previous_folderIndex = folderIndex;
-
-    displayPlayer();
-
-    // Pętla oczekiwania na koniec pliku / sterowanie z pilota
-    while (isPlaying && !menuRequested && !stopAll)
+    else
     {
-      audio.loop();
-      processIRCode();              // odczyt flag z pilota
-      volumeSetFromRemote();        // regulacja głośności z pilota
-      vTaskDelay(1);
-
-      // Aktualizacja zegara / czasu utworu co sekundę
-      if (updateClockFlag)
-      {
-        updateClockFlag = false;
-        drawClock();
-      }
-      // Aktualizacja czasu trwania pliku (liczony od startu trackStartMillis)
-      if (currentOption == PLAY_FILES)
-      {
-        unsigned long elapsed = (millis() - trackStartMillis) / 1000; // sekundy
-        unsigned int h = elapsed / 3600;
-        unsigned int m = (elapsed % 3600) / 60;
-        unsigned int s = elapsed % 60;
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%02dh:%02dm:%02ds", h, m, s);
-        fileTime = String(buf);
-      }
-
-      // Wyjście do MENU (przycisk MODE)
-      if (IRmenuButton)
-      {
-        IRmenuButton = false;
-        menuRequested = true;
-        Serial.println("Włączenie MENU wyboru źródła dźwięku - wychodzę z playera");
-        audio.stopSong();
-        isPlaying = false;
-        break;
-      }
-
-      // Następny plik (pilot lub koniec pliku)
-      if (playNextFile || IRrightArrow || fileEnd)
-      {
-        IRrightArrow = false;
-        playNextFile = false;
-        fileEnd = false;
-        audio.stopSong();
-        isPlaying = false;
-        fileIndex++;
-        if (fileIndex >= filesCount)
-        {
-          Serial.println("To jest ostatni plik w folderze - przechodzę do następnego folderu");
-          playNextFolder = true;
-        }
-        else
-        {
-          // normalne przejście do następnego pliku w pętli
-        }
-        break; // wyjście z wewnętrznej pętli, kontynuacja w zewnętrznej
-      }
-
-      // Poprzedni plik
-      if (playPreviousFile || IRleftArrow)
-      {
-        IRleftArrow = false;
-        playPreviousFile = false;
-        audio.stopSong();
-        isPlaying = false;
-        if (fileIndex > 0)
-          fileIndex--;
-        else
-          fileIndex = 0;
-        break;
-      }
-
-      // Zatwierdzenie wyboru folderu -> odtwarzaj wybrany (podświetlony) folder
-      if (IRokButton && folderSelection)
-      {
-        IRokButton = false;
-        folderSelection = false;
-        displayActive = false;
-        audio.stopSong();
-        isPlaying = false;
-
-        // Ustaw folderIndex na aktualne zaznaczenie
-        folderIndex = constrain(currentSelection, 0, folderCount - 1);
-        fileIndex = 0;
-
-        // Zabezpieczenie: zamknij katalog przed rekurencyjnym wywołaniem
-        root.close();
-
-        Serial.printf("Zatwierdzono folder: %d -> %s\n", folderIndex + 1, directories[folderIndex].c_str());
-
-        // Rozpocznij odtwarzanie z wybranego folderu
-        playFromSelectedFolder();
-        return; // nie kontynuuj starej pętli
-      }
-
-      // Zatwierdzenie wyboru pliku
-      if (IRokButton && fileSelection)
-      {
-        IRokButton = false;
-        fileSelection = false;
-        displayActive = false;
-        audio.stopSong();
-        isPlaying = false;
-        break;
-      }
-
-
-      // --- OBSŁUGA STRZAŁEK GÓRA / DÓŁ (z wrap-around i aktualizacją okna) ---
-      if (IRupArrow)
-      {
-        IRupArrow = false;
-        displayActive = true;
-        displayStartTime = millis();
-
-        if (folderSelection)
-        {
-          if (folderCount > 0)
-          {
-            if (currentSelection > 0) currentSelection--;
-            else currentSelection = folderCount - 1;
-            folderIndex = currentSelection;
-            if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
-            if (currentSelection >= firstVisibleLine + maxVisibleLines) firstVisibleLine = currentSelection - maxVisibleLines + 1;
-          }
-          displayFolders();
-        }
-        else
-        {
-          fileSelection = true;
-          scrollUpFiles();
-          fileIndex = currentSelection;
-          folderIndex = previous_folderIndex;
-          displayFiles();
-        }
-      }
-
-      if (IRdownArrow)
-      {
-        IRdownArrow = false;
-        displayActive = true;
-        displayStartTime = millis();
-
-        if (folderSelection)
-        {
-          if (folderCount > 0)
-          {
-            if (currentSelection < folderCount - 1) currentSelection++;
-            else currentSelection = 0;
-            folderIndex = currentSelection;
-            if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
-            if (currentSelection >= firstVisibleLine + maxVisibleLines) firstVisibleLine = currentSelection - maxVisibleLines + 1;
-          }
-          displayFolders();
-        }
-        else
-        {
-          fileSelection = true;
-          scrollDownFiles();
-          fileIndex = currentSelection;
-          folderIndex = previous_folderIndex;
-          displayFiles();
-        }
-      }
-
-      // Jeśli aktywne wyświetlenie listy folderów
-      if (folderList)
-      {
-        folderList = false;
-        folderSelection = true;
-        displayActive = true;
-        displayStartTime = millis();
-
-        currentSelection = constrain(folderIndex, 0, folderCount - 1);
-        firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
-
-        Serial.printf("Lista folderów -> currentSelection=%d firstVisibleLine=%d\n", currentSelection, firstVisibleLine);
-
-        displayFolders();
-      }
-
-      // Powrót do wyświetlania playera po bezczynności
-      if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
-      {
-        inputBuffer = "";
-        inputActive = false;
-        fileSelection = false;
-        folderSelection = false;
-        folderList = false;
-        displayActive = false;
-        displayStartTime = millis();
-        fileIndex = previous_fileIndex;
-        folderIndex = previous_folderIndex;
-        Serial.println("Timeout: powrót do głównego ekranu playera");
-        displayPlayer();
-      }
-
-
-    } // koniec while(isPlaying)
-
-    // Jeśli przycisk MENU menu został wywołany wewnątrz, przerwij odtwarzanie i wyjdź
-    if (menuRequested)
-    {
-      // Zamknij katalog i pokaż menu (przejście do wyboru źródła)
-      root.close();
-      menuEnable = true;
-      displayActive = true;
-      displayStartTime = millis();
-      displayMenu();
-      return;          // Wyjście z funkcji playFromSelectedFolder
+      Serial.println("Błąd podczas zapisu do fileIndex.txt");
     }
-
-    // Jeśli ustawiono playNextFolder -> ustaw indeks folderu i powtórz
-    if (playNextFolder)
+  }
+  else
+  {
+    Serial.println("Plik fileIndex.txt nie istnieje. Tworzę nowy...");
+    myFile = SD.open("/fileIndex.txt", FILE_WRITE);
+    if (myFile)
     {
-      folderIndex++;
-      if (folderIndex >= folderCount)
-      {
-        Serial.println("To był ostatni folder.");
-        break;
-      }
-      fileIndex = 0;
-
-      root.close();
-      playFromSelectedFolder();
-      return;
+      myFile.println(fileIndex);
+      myFile.close();
+      Serial.print("Utworzono i zapisano fileIndex = ");
+      Serial.println(fileIndex);
     }
-
+    else
+    {
+      Serial.println("Błąd podczas tworzenia fileIndex.txt");
+    }
   }
 
-  // Zamknij katalog przy normalnym wyjściu
-  root.close();
-
-  Serial.println("Wyjście z playFromSelectedFolder()");
+  // ---- ZAPIS folderIndex ----
+  if (SD.exists("/folderIndex.txt"))
+  {
+    Serial.println("Plik folderIndex.txt już istnieje. Aktualizuję...");
+    myFile = SD.open("/folderIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(folderIndex);
+      myFile.close();
+      Serial.print("Zapisano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas zapisu do folderIndex.txt");
+    }
+  }
+  else
+  {
+    Serial.println("Plik folderIndex.txt nie istnieje. Tworzę nowy...");
+    myFile = SD.open("/folderIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(folderIndex);
+      myFile.close();
+      Serial.print("Utworzono i zapisano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia folderIndex.txt");
+    }
+  }
 }
+
+
+void loadFileAndFolderIndexes()
+{
+  if (SD.exists("/fileIndex.txt"))
+  {
+    File f = SD.open("/fileIndex.txt");
+    if (f)
+    {
+      fileIndex = f.parseInt();
+      f.close();
+      Serial.print("Odczytano fileIndex = ");
+      Serial.println(fileIndex);
+    }
+  }
+
+  if (SD.exists("/folderIndex.txt"))
+  {
+    File f = SD.open("/folderIndex.txt");
+    if (f)
+    {
+      folderIndex = f.parseInt();
+      f.close();
+      Serial.print("Odczytano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+  }
+}
+
 
 
 void playFile()
@@ -3426,237 +3149,6 @@ void scrollUpFiles()
 }
 
 
-// Wyświetlanie przewijalnej listy plików z podświetleniem
-void displayFiles()
-{
-  fileSelection = true;
-  folderSelection = false;
-  if (filesCount <= 0)
-  {
-    Serial.println("Brak plików do wyświetlenia!");
-    canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);
-    canvas.setFont(&FreeSans12pt7b);
-    canvas.setTextColor(COLOR_RED);
-    canvas.setCursor(10, 50);
-    canvas.print("Brak plikow w folderze!");
-    tft_pushCanvas(canvas);
-    return;
-  }
-
-  //Serial.printf("filesCount=%d fileIndex=%d currentSelection=%d firstVisibleLine=%d\n", filesCount, fileIndex, currentSelection, firstVisibleLine);
-
-  const int maxVisibleFiles = 6;
-  const int rowHeight = 30;
-  const int maxChars = 46;  // maksymalna liczba znaków w wierszu
-
-  // Czyszczenie ekranu
-  canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
-
-  // Nagłówek
-  String header = "LISTA PLIKOW   " + String(fileIndex + 1) + " / " + String(filesCount);
-  canvas.setFont(&FreeSans12pt7b);
-  canvas.setTextColor(COLOR_CYAN);
-  canvas.setCursor(50, 25);
-  canvas.print(header);
-
-  // Korekta firstVisibleLine
-  if (currentSelection < firstVisibleLine)
-  {
-    firstVisibleLine = currentSelection;
-  }
-  if (currentSelection >= firstVisibleLine + maxVisibleFiles)
-  {
-    firstVisibleLine = currentSelection - maxVisibleFiles + 1;
-  }
-
-  //Serial.printf("Po korekcie: currentSelection=%d firstVisibleLine=%d\n", currentSelection, firstVisibleLine);
-
-  int displayRow = 0;
-
-  for (int i = firstVisibleLine; i < min(firstVisibleLine + maxVisibleFiles, filesCount); i++)
-  {
-    //Serial.printf("Rysuję plik index=%d (displayRow=%d)\n", i, displayRow);
-
-    if (i < 0 || i >= filesCount)
-    {
-      Serial.printf("BŁĄD: i=%d poza zakresem (filesCount=%d)\n", i, filesCount);
-      continue;
-    }
-
-    String fileNameDisplay = files[i];
-
-    // Nazwa bez ścieżki
-    int lastSlashIndex = fileNameDisplay.lastIndexOf('/');
-    if (lastSlashIndex != -1)
-    {
-      fileNameDisplay = fileNameDisplay.substring(lastSlashIndex + 1);
-    }
-
-    // Przycinanie do max 42 znaków
-    if (fileNameDisplay.length() > maxChars)
-    {
-      fileNameDisplay = fileNameDisplay.substring(0, maxChars - 3) + "...";
-    }
-
-    //Serial.printf("Plik do wyswietlenia='%s'\n", fileNameDisplay.c_str());
-
-    int y = 65 + displayRow * rowHeight;
-
-    // Podświetlenie zaznaczonego
-    if (i == currentSelection)
-    {
-      //Serial.println(" -> Ten plik jest zaznaczony!");
-      canvas.fillRect(0, y - 22, 480, rowHeight, COLOR_ORANGE);
-      canvas.setTextColor(COLOR_BLACK);
-    }
-    else
-    {
-      canvas.setTextColor(COLOR_WHITE);
-    }
-
-    canvas.setCursor(0, y);
-    canvas.print(fileNameDisplay);
-
-    displayRow++;
-  }
-
-  tft_pushCanvas(canvas);
-}
-
-
-void displayPlayer()
-{
-  // Czyszczenie całego ekranu
-  canvas.fillScreen(COLOR_BLACK);
-
-  int x = 0;
-  int y = 25;
-  int lineHeight = 28;  // wysokość linii w pikselach
-
-  canvas.setFont(&FreeSans12pt7b);
-
-  // Nagłówek pliku/folderu
-  canvas.setTextColor(COLOR_SKYBLUE);
-  String header = "   Odtwarzanie pliku " + String(previous_fileIndex + 1) + "/" + String(filesCount) +
-                  " folder " + String(previous_folderIndex + 1) + "/" + String(folderCount);
-  canvas.setCursor(x, y);
-  canvas.print(fitTextToWidth(header, 460));
-  y += lineHeight;
-
-  if (id3tag)
-  {
-    // Artysta
-    artistString = normalizePolish(artistString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Artysta: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(artistString, 460 - canvas.getCursorX()));
-
-    y += lineHeight;
-
-    // Tytuł
-    titleString = normalizePolish(titleString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Tytul: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(titleString, 460 - canvas.getCursorX()));
-
-    y += lineHeight;
-
-    // Album
-    albumString = normalizePolish(albumString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Album: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(albumString, 460 - canvas.getCursorX()));
-
-    y += lineHeight;
-
-    // Rok
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Rok: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(yearString, 460 - canvas.getCursorX()));
-
-    y += lineHeight;
-
-    // Folder
-    folderNameString = normalizePolish(folderNameString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Folder: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(folderNameString, 460 - canvas.getCursorX()));
-
-    y += lineHeight;  // przejście do kolejnej linii
-
-    // Plik
-    fileNameString = normalizePolish(fileNameString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Plik: ");
-    canvas.setTextColor(COLOR_WHITE);
-    canvas.print(fitTextToWidth(fileNameString, 460 - canvas.getCursorX()));
-  }
-  else
-  {
-    canvas.setTextColor(COLOR_RED);
-    canvas.setCursor(x, y);
-    canvas.print("Brak danych ID3 utworu");
-    y += lineHeight;
-
-    // Folder
-    folderNameString = normalizePolish(folderNameString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Folder: ");
-    y += lineHeight;
-    printWrappedText(folderNameString, x, y, lineHeight, 460 - x, COLOR_WHITE);
-    y += ((folderNameString.length() / 20) + 1) * lineHeight;
-
-    // Plik
-    fileNameString = normalizePolish(fileNameString);
-    canvas.setTextColor(COLOR_YELLOW);
-    canvas.setCursor(x, y);
-    canvas.print("Plik: ");
-    y += lineHeight;
-    printWrappedText(fileNameString, x, y, lineHeight, 460 - x, COLOR_WHITE);
-  }
-
-  // --- Parametry audio (bitrate, sample rate, bits per sample) ---
-  String audioInfoDisplay = "";
-  bitrateString.trim();      // Usuń białe znaki
-  sampleRateString.trim();
-  bitsPerSampleString.trim();
-
-  if (bitrateString.length() > 0)  audioInfoDisplay += bitrateString + " b/s   ";
-  if (sampleRateString.length() > 0)  audioInfoDisplay += sampleRateString + " Hz    ";
-  if (bitsPerSampleString.length() > 0)  audioInfoDisplay += bitsPerSampleString + " bit";
-
-  canvas.setFont(&FreeMonoBold12pt7b);  // Czcionka dla parametrów audio
-  canvas.setTextColor(COLOR_GREEN);    // Kolor tekstu
-  canvas.setCursor(5, 250);             // Pozycja tekstu powyżej głośności
-  canvas.print(audioInfoDisplay);       // Wyświetlenie parametrów audio
-
-  // --- Wyświetlenie głośności ---
-  volumeDisplay = "VOL " + String(volumeValue);
-  canvas.setTextColor(COLOR_WHITE);     // Kolor dla głośności
-  canvas.setCursor(5, 280);             // Pozycja tekstu
-  canvas.print(volumeDisplay);          // Wyświetlenie głośności
-
-  // --- Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.) ---
-  canvas.setTextColor(COLOR_SPRINGGREEN); // Kolor tekstu
-  canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
-  canvas.print(fileType);               // Wyświetlenie typu pliku
-
-  // --- Wysyłanie całego canvasu na ekran TFT ---
-  //tft_pushCanvas(canvas);
-
-}
 
 // Funkcja dzieląca tekst na fragmenty mieszczące się w szerokości maxWidth
 void printWrappedText(String text, int x, int y, int lineHeight, int maxWidth, uint16_t color)
@@ -3774,6 +3266,8 @@ void setup()
   readStationFromSD();
   previous_bank_nr = bank_nr; // Wyrównanie numerów banku przy starcie
 
+  loadFileAndFolderIndexes();
+
   // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią
   if (wifiManager.autoConnect("ESP Internet Radio"))
   {
@@ -3816,13 +3310,13 @@ void loop()
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
   vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
-  if (displayActive == false)
+  if ((displayActive == false) && (stationsList == false))
   {
     showCalendarCarousel();
     switchWeatherData();
   }
 
-  if (updateClockFlag)
+  if (updateClockFlag == true)
   {
     updateClockFlag = false;
     drawClock();
@@ -4026,9 +3520,9 @@ void loop()
     }
   }
 
-  if (IRmenuButton == true)  // Przycisk MODE w pilocie
+  if (IRsourceButton == true)  // Przycisk SOURCE w pilocie
   {
-    IRmenuButton = false;
+    IRsourceButton = false;
     menuEnable = true;
     displayActive = true;
     isPlaying = false;
@@ -4047,10 +3541,22 @@ void loop()
     displayMenu();
   }
 
+  if (IRstopButton == true)  // Przycisk STOP w pilocie
+  {
+    IRstopButton = false;
+    displayActive = false;
+    stationsList = true;
+    currentSelection = station_nr - 1;
+    firstVisibleLine = currentSelection;
+    audio.stopSong();
+    Serial.println("Wciśnięto przycisk STOP - wyświetlam listę stacji");
+    displayStations();
+  }
 
   // Powrót do wyświetlania radia po bezczynności
   if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
   {
+    currentOption = INTERNET_RADIO;
     station_nr = previous_station_nr; 
     bank_nr = previous_bank_nr;
     displayActive = false;
