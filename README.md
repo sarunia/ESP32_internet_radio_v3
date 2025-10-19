@@ -112,6 +112,10 @@ Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odb
 #define rcCmdProg         0x000F   // Przycisk PROG
 #define rcCmdMemory       0x001F   // Przycisk MEMORY
 ```
+Przypisanie adresu i komendy dla każdego przycisku polega na sklejeniu 2 bajtów np. odczytany przycisk z serial terminala"
+`ADR:0 CMD:4B`
+trzeba skleić do postaci:
+`0x004B`
 
 ---
 
