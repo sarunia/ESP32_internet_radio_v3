@@ -114,7 +114,7 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 |--------------|------------|
 | **SOURCE** | Zmiana trybu: Radio ↔ Odtwarzacz plików |
 | **OK** | Zatwierdzenie wyboru |
-| **GOTO / FolderList** | Wyświetlenie listy folderów |
+| **GOTO** | Wyświetlenie listy folderów |
 | **FAV+ / FAV-** | Zmiana banku stacji (radio) |
 | **VOL+ / VOL-** | Regulacja głośności |
 | **CYFRY 0–9** | Wpisywanie numeru stacji, folderu lub pliku |
