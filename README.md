@@ -66,6 +66,8 @@ Projekt wykorzystuje czcionki **FreeFonts** oraz jedną niestandardową czcionk�
 #include <FreeMono18pt7b.h>       // Mono, 18pt – siatki danych
 #include <DS_DIGII35pt7b.h>       // Styl 7-segmentowy, 35pt – duży zegar
 
+---
+
 ## 🌟 Opis projektu (PL)
 
 **Internet Radio v3** to nowoczesny projekt odtwarzacza audio i radia internetowego opartego na **ESP32-S3**.  
