@@ -112,14 +112,11 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 
 | 🔘 Przycisk | 🧭 Funkcja |
 |--------------|------------|
-| **MODE** | Zmiana trybu: Radio ↔ Odtwarzacz plików |
-| **HOME** | Powrót do ekranu głównego |
+| **SOURCE** | Zmiana trybu: Radio ↔ Odtwarzacz plików |
 | **OK** | Zatwierdzenie wyboru |
 | **GOTO / FolderList** | Wyświetlenie listy folderów |
 | **FAV+ / FAV-** | Zmiana banku stacji (radio) |
 | **VOL+ / VOL-** | Regulacja głośności |
-| **MUTE** | Wyciszenie / ponowne włączenie |
-| **PLAY / PAUSE** | Wstrzymaj / Wznów odtwarzanie |
 | **CYFRY 0–9** | Wpisywanie numeru stacji, folderu lub pliku |
 | **↑ / ↓ / ← / →** | Przewijanie lub nawigacja po liście |
 
@@ -130,15 +127,13 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 | Przycisk | Działanie |
 |-----------|------------|
 | **↑ / ↓** | Przewijanie listy stacji |
-| **← / →** | Nawigacja między pozycjami na liście |
+| **← / →** | Przełączanie stacji o jedną do przodu lub do tyłu |
 | **OK** | Odtwarzanie wybranej stacji |
 | **CYFRY 0–9** | Bezpośrednie wpisanie numeru stacji |
 | **FAV+ / FAV-** | Zmiana banku stacji (1–18) |
 | **VOL+ / VOL-** | Zmiana głośności |
-| **MUTE** | Wyciszenie / ponowne włączenie |
-| **PLAY / PAUSE** | Pauza / Wznów |
-| **MODE** | Przejście do odtwarzacza plików |
-| **HOME** | Powrót do ekranu głównego |
+| **SOURCE** | Przejście do wyboru źródła audio |
+| **STOP** | Zatrzymanie odtwarzania i przejście do listy stacji |
 
 ---
 
@@ -146,15 +141,14 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 
 | Przycisk | Działanie |
 |-----------|------------|
-| **↑ / ↓** | Przewijanie listy plików lub folderów |
-| **← / →** | Zmiana widoku (foldery ↔ pliki) |
+| **↑ / ↓** | Przewijanie listy plików podczas odtwarzania |
+| **← / →** | Przełączanie pliku o jeden do przodu lub do tyłu |
 | **OK** | Otwórz folder lub odtwórz plik |
 | **CYFRY 0–9** | Wybór folderu lub pliku (np. „123”) |
-| **GOTO / FolderList** | Powrót do listy folderów |
+| **GOTO / Wyświetlenie listy folderów |
 | **VOL+ / VOL-** | Regulacja głośności |
-| **PLAY / PAUSE** | Pauza / Wznów |
-| **MUTE** | Wyciszenie / włączenie dźwięku |
-| **MODE** | Przejście do radia internetowego |
+| **SOURCE** | Przejście do wyboru źródła audio |
+| **STOP** | Zatrzymanie odtwarzania i przejście do listy folderów |
 
 ---
 
@@ -165,33 +159,8 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 /folderIndex.txt ← ostatni folder
 /fileIndex.txt ← ostatni plik
 /bank01.txt ... bank18.txt ← listy stacji radiowych
-/MUSIC/ ← katalog z plikami audio
+/ ← foldery z plikami audio muszą być w głównym katalogu karty SD
 
-
-
----
-
-## 📈 Informacje wyświetlane na ekranie
-
-- 📻 Numer i nazwa stacji radiowej  
-- 🌐 Adres URL strumienia  
-- 🎵 Tytuł i wykonawca (jeśli dostępne)  
-- 💡 Parametry audio:
-  - Bitrate (kbps)
-  - Sample rate (Hz)
-  - Bit depth  
-- 🔊 Poziom głośności  
-- 🕒 Tryb automatycznego powrotu (po 12 s)
-
----
-
-## 💾 Zapisywanie ustawień
-
-Projekt automatycznie zapisuje bieżące ustawienia:
-- Ostatnio wybraną stację i bank → `/station_nr.txt`, `/bank_nr.txt`
-- Ostatnio odtwarzany folder i plik → `/folderIndex.txt`, `/fileIndex.txt`
-
-Po restarcie ESP32-S3 projekt **automatycznie przywraca ostatni stan odtwarzania**.
 
 ---
 
