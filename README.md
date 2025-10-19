@@ -1,76 +1,218 @@
-# Internet Radio v3 - development version / Radio Internetowe v3 - wersja rozwojowa
+# 🎧 Internet Radio v3 – ESP32-S3 Internet Radio & Audio Player (IR Remote Controlled)
 
-## Polski
-
-**Internet Radio v3** to projekt odtwarzacza plików audio i radia internetowego dla ESP32 S3 z wyświetlaczem TFT ILI9488 i modułem audio DAC (PCM5102A). Projekt umożliwia odtwarzanie strumieni audio online oraz plików lokalnych z karty SD. Wersja v3 wprowadza liczne usprawnienia w wyświetlaniu informacji i obsłudze pilotem IR.
-
-### Funkcjonalności
-
-- Obsługa wyświetlacza TFT 480x320 z wykorzystaniem bibliotek **Adafruit GFX** i czcionek FreeSans / FreeMono w różnych rozmiarach i stylach.
-- Sterowanie przy użyciu enkoderów obrotowych oraz pilota IR (NEC 38 kHz):
-  - Nawigacja po stacjach radiowych i bankach
-  - Regulacja głośności
-  - Pauza / wznowienie odtwarzania
-  - Wyciszenie dźwięku
-- Obsługa **18 banków stacji radiowych**, każdy bank zawiera do 99 stacji.
-- Pobieranie list stacji radiowych z plików z GitHub.
-- Obsługa odtwarzania lokalnych plików audio z karty SD.
-- Wyświetlanie informacji o strumieniu audio:
-  - Bitrate w b/s
-  - Sample rate w Hz
-  - Liczba bitów na próbkę (bits per sample)
-- Wyświetlanie informacji o utworze:
-  - Tytuł
-  - Wykonawca
-- Wyświetlanie bieżącego numeru banku i stacji.
-- Automatyczny powrót do wyświetlania radia po 12 sekundach braku aktywności przy wyświetlaniu numeru banku.
-- Obsługa kolorów RGB i wyraźnych kolorów dla elementów interfejsu.
-
-### Wymagane biblioteki
-
-- [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library)
-- FreeFonts (FreeSans12pt7b, FreeMonoBold12pt7b, FreeMonoBold18pt7b, FreeSansBold18pt7b, FreeMono18pt7b)
-- [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
-- [WiFiManager](https://github.com/tzapu/WiFiManager)
-- [Audio](https://github.com/schreibfaul1/ESP32-audioI2S)
-- SD, SPI, FS, Ticker, Time
+> 📻 **Pełna obsługa radia internetowego i plików audio z karty SD dla ESP32-S3 z wyświetlaczem TFT ILI9488 i DAC PCM5102A.**  
+> 💡 **Sterowanie wyłącznie pilotem IR (NEC 38 kHz)** — bez enkoderów i przycisków fizycznych.
 
 ---
 
-## English
+## 🧰 Instalacja i konfiguracja środowiska
 
-**Internet Radio v3** is an Internet radio and audio file player project for ESP32 S3 with a TFT ILI9488 display and PCM5102A DAC module. The project supports online audio streams and local audio files from an SD card. Version v3 introduces improved display handling and IR remote control support.
+Aby poprawnie uruchomić projekt, wykonaj poniższe kroki:
 
-### Features
-
-- TFT 480x320 display support using **Adafruit GFX** library and FreeSans / FreeMono fonts in various sizes and styles.
-- Control via rotary encoders and IR remote (NEC 38 kHz):
-  - Navigation through radio stations and banks
-  - Volume adjustment
-  - Pause / resume playback
-  - Mute audio
-- Supports up **18 radio banks**, each bank with up to 99 stations.
-- Fetching of radio station lists from files on GitHub.
-- Local audio file playback from SD card.
-- Display of audio stream information:
-  - Bitrate in b/s
-  - Sample rate in Hz
-  - Bits per sample
-- Display of track information:
-  - Title
-  - Artist
-- Display of current bank and station number.
-- Automatic return to radio display after 12 seconds of inactivity when showing bank number.
-- Use of RGB colors for clear UI elements.
-
-### Required Libraries
-
-- [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library)
-- FreeFonts (FreeSans12pt7b, FreeMonoBold12pt7b, FreeMonoBold18pt7b, FreeSansBold18pt7b, FreeMono18pt7b)
-- [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
-- [WiFiManager](https://github.com/tzapu/WiFiManager)
-- [Audio](https://github.com/schreibfaul1/ESP32-audioI2S)
-- SD, SPI, FS, Ticker, Time
+### 1️⃣ Zainstaluj Arduino IDE
+- Pobierz i zainstaluj **Arduino IDE w wersji 2.3.6**  
+  🔗 [Pobierz Arduino IDE 2.3.6](https://www.arduino.cc/en/software)
 
 ---
 
+### 2️⃣ Dodaj obsługę ESP32
+- Otwórz:  
+  `Plik → Preferencje → Dodatkowe adresy URL do menedżera płytek`
+- Wklej poniższy adres:
+https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+markdown
+Skopiuj kod
+- Następnie przejdź do:  
+`Narzędzia → Płytka → Menedżer płytek`
+- Wyszukaj **esp32** i zainstaluj wersję **3.3.2**
+
+---
+
+### 3️⃣ Zainstaluj wymagane biblioteki
+
+| Biblioteka | Wersja | Źródło |
+|-------------|--------|--------|
+| [ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) | **3.4.2** | GitHub |
+| [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library) | – | Menedżer bibliotek |
+| [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | – | Menedżer bibliotek |
+| [WiFiManager](https://github.com/tzapu/WiFiManager) | – | GitHub |
+| FreeFonts (FreeSans / FreeMono) | – | Z pakietu Adafruit GFX |
+| Wbudowane: **SD**, **SPI**, **FS**, **Ticker**, **Time** | – | W Arduino IDE |
+
+---
+
+## 🌟 Opis projektu (PL)
+
+**Internet Radio v3** to nowoczesny projekt odtwarzacza audio i radia internetowego opartego na **ESP32-S3**.  
+Działa w dwóch trybach:
+- 📡 **Internet Radio**
+- 💾 **Odtwarzacz plików audio z karty SD**
+
+Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odbywa się z pilota IR**.
+
+---
+
+## 🔍 Funkcjonalności
+
+- 🎨 **Wyświetlacz TFT 480×320 (ILI9488)** z obsługą kolorów RGB
+- 🖋️ Czytelne czcionki **FreeSans / FreeMono** w wielu rozmiarach
+- 📶 **Radio internetowe (MP3 / AAC / FLAC / OGG)**
+- Do **18 banków** stacji (1–18)
+- Każdy bank do **99 stacji**
+- Pobieranie list stacji z plików `bankXX.txt`
+- 💾 **Odtwarzacz plików audio z karty SD**
+- Nawigacja po folderach i plikach
+- Zapamiętywanie ostatniego folderu i pliku
+- 🔊 **Pełna obsługa pilota IR**
+- 💡 **Zapamiętywanie ostatnich ustawień**:
+- `/station_nr.txt`
+- `/bank_nr.txt`
+- `/folderIndex.txt`
+- `/fileIndex.txt`
+- ⏱️ Automatyczny powrót do głównego widoku po 12 s bezczynności
+
+---
+
+## 🎮 Sterowanie pilotem IR
+
+Projekt obsługuje **pilot NEC 38 kHz**.  
+Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
+
+---
+
+### ⚙️ Przyciskowe sterowanie – ogólnie
+
+| 🔘 Przycisk | 🧭 Funkcja |
+|--------------|------------|
+| **MODE** | Zmiana trybu: Radio ↔ Odtwarzacz plików |
+| **HOME** | Powrót do ekranu głównego |
+| **OK** | Zatwierdzenie wyboru |
+| **GOTO / FolderList** | Wyświetlenie listy folderów |
+| **FAV+ / FAV-** | Zmiana banku stacji (radio) |
+| **VOL+ / VOL-** | Regulacja głośności |
+| **MUTE** | Wyciszenie / ponowne włączenie |
+| **PLAY / PAUSE** | Wstrzymaj / Wznów odtwarzanie |
+| **CYFRY 0–9** | Wpisywanie numeru stacji, folderu lub pliku |
+| **↑ / ↓ / ← / →** | Przewijanie lub nawigacja po liście |
+
+---
+
+### 📡 Tryb: Radio internetowe
+
+| Przycisk | Działanie |
+|-----------|------------|
+| **↑ / ↓** | Przewijanie listy stacji |
+| **← / →** | Nawigacja między pozycjami na liście |
+| **OK** | Odtwarzanie wybranej stacji |
+| **CYFRY 0–9** | Bezpośrednie wpisanie numeru stacji |
+| **FAV+ / FAV-** | Zmiana banku stacji (1–18) |
+| **VOL+ / VOL-** | Zmiana głośności |
+| **MUTE** | Wyciszenie / ponowne włączenie |
+| **PLAY / PAUSE** | Pauza / Wznów |
+| **MODE** | Przejście do odtwarzacza plików |
+| **HOME** | Powrót do ekranu głównego |
+
+---
+
+### 💾 Tryb: Odtwarzacz plików
+
+| Przycisk | Działanie |
+|-----------|------------|
+| **↑ / ↓** | Przewijanie listy plików lub folderów |
+| **← / →** | Zmiana widoku (foldery ↔ pliki) |
+| **OK** | Otwórz folder lub odtwórz plik |
+| **CYFRY 0–9** | Wybór folderu lub pliku (np. „123”) |
+| **GOTO / FolderList** | Powrót do listy folderów |
+| **VOL+ / VOL-** | Regulacja głośności |
+| **PLAY / PAUSE** | Pauza / Wznów |
+| **MUTE** | Wyciszenie / włączenie dźwięku |
+| **MODE** | Przejście do radia internetowego |
+
+---
+
+## 💾 Struktura karty SD
+
+/station_nr.txt ← ostatnia stacja radiowa
+/bank_nr.txt ← ostatni bank
+/folderIndex.txt ← ostatni folder
+/fileIndex.txt ← ostatni plik
+/bank01.txt ... bank18.txt ← listy stacji radiowych
+/MUSIC/ ← katalog z plikami audio
+
+yaml
+Skopiuj kod
+
+---
+
+## 📈 Informacje wyświetlane na ekranie
+
+- 📻 Numer i nazwa stacji radiowej  
+- 🌐 Adres URL strumienia  
+- 🎵 Tytuł i wykonawca (jeśli dostępne)  
+- 💡 Parametry audio:
+  - Bitrate (kbps)
+  - Sample rate (Hz)
+  - Bit depth  
+- 🔊 Poziom głośności  
+- 🕒 Tryb automatycznego powrotu (po 12 s)
+
+---
+
+## 💾 Zapisywanie ustawień
+
+Projekt automatycznie zapisuje bieżące ustawienia:
+- Ostatnio wybraną stację i bank → `/station_nr.txt`, `/bank_nr.txt`
+- Ostatnio odtwarzany folder i plik → `/folderIndex.txt`, `/fileIndex.txt`
+
+Po restarcie ESP32-S3 projekt **automatycznie przywraca ostatni stan odtwarzania**.
+
+---
+
+## ⚙️ Wymagane biblioteki
+
+| Biblioteka | Opis |
+|-------------|------|
+| **Adafruit GFX** | Obsługa grafiki TFT |
+| **FreeFonts (FreeSans / FreeMono)** | Czcionki tekstowe |
+| **ArduinoJson** | Przetwarzanie plików konfiguracyjnych |
+| **WiFiManager** | Automatyczne łączenie z Wi-Fi |
+| **ESP32-audioI2S** | Odtwarzanie strumieni i plików audio |
+| **SD, SPI, FS, Ticker, Time** | Obsługa karty SD i systemu czasu |
+
+---
+
+## ⚡ Sprzęt
+
+| Element | Model |
+|----------|--------|
+| 🧠 Mikrokontroler | **ESP32-S3** |
+| 🖥️ Wyświetlacz | **TFT ILI9488 (480x320)** |
+| 🎧 DAC audio | **PCM5102A** |
+| 🔌 Sterowanie | **Pilot IR NEC 38 kHz** |
+| 💾 Pamięć | **microSD** |
+
+---
+
+## 🇬🇧 English Summary
+
+**Internet Radio v3** is a dual-mode project for **ESP32-S3**:  
+- Internet Radio (up to 18 banks × 99 stations)  
+- Local Audio Player from SD (MP3, FLAC, AAC, OGG)
+
+All control is performed **via IR remote**, no rotary encoders required.  
+The project automatically saves and restores playback state after reboot.
+
+---
+
+📦 **Version:** 3.4.x (development build)  
+🧠 **Platform:** ESP32-S3  
+🎨 **Display:** ILI9488 (480×320)  
+🎧 **Audio:** PCM5102A DAC  
+📡 **Control:** IR Remote (NEC 38 kHz)  
+💾 **Storage:** microSD  
+
+---
+
+👤 **Author:** _[Twoje Imię lub Nick]_  
+🌍 **Repository:** [GitHub – Internet-Radio-v3](https://github.com/TwojProfil/Internet-Radio-v3)
