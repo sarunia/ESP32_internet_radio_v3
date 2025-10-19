@@ -238,7 +238,7 @@ Pod warunkiem, że w każdej kopii projektu lub jego części zachowasz informac
 
 MIT License
 
-Copyright (c) 2025 [Twoje Imię lub Nick]
+Copyright (c) 2025 [Sławomir Malinowski / MAJSTER XXL / sarunia]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
