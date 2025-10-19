@@ -220,25 +220,43 @@ Po restarcie ESP32-S3 projekt **automatycznie przywraca ostatni stan odtwarzania
 
 ---
 
-## 🇬🇧 English Summary
+## ⚖️ Licencja
 
-**Internet Radio v3** is a dual-mode project for **ESP32-S3**:  
-- Internet Radio (up to 18 banks × 99 stations)  
-- Local Audio Player from SD (MP3, FLAC, AAC, OGG)
+Ten projekt jest udostępniony na zasadach **wolnej licencji MIT (MIT License)**.  
+Oznacza to, że możesz:
 
-All control is performed **via IR remote**, no rotary encoders required.  
-The project automatically saves and restores playback state after reboot.
+- 🆓 **Używać** kodu w dowolnym celu (komercyjnym lub prywatnym)  
+- ✏️ **Modyfikować** kod według własnych potrzeb  
+- 📤 **Rozpowszechniać** projekt lub jego zmodyfikowane wersje  
+- 💡 **Uczyć się** z tego kodu i wykorzystywać go w swoich projektach
 
----
-
-📦 **Version:** 3.4.x (development build)  
-🧠 **Platform:** ESP32-S3  
-🎨 **Display:** ILI9488 (480×320)  
-🎧 **Audio:** PCM5102A DAC  
-📡 **Control:** IR Remote (NEC 38 kHz)  
-💾 **Storage:** microSD  
+Pod warunkiem, że w każdej kopii projektu lub jego części zachowasz informację o autorze i treść niniejszej licencji.
 
 ---
+
+### 🧾 Pełna treść licencji MIT
+
+MIT License
+
+Copyright (c) 2025 [Twoje Imię lub Nick]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 👤 **Author:** _[Sławomir Malinowski / MAJSTER XXL / sarunia]_  
 🌍 **Repository:** [GitHub – Internet-Radio-v3](https://github.com/TwojProfil/Internet-Radio-v3)
