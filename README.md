@@ -83,7 +83,35 @@ Działa w dwóch trybach:
 - 💾 **Odtwarzacz plików audio z karty SD**
 
 Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odbywa się z pilota IR**. Należy we własnym zakresie przypisać przyciski swojego pilota, korzystajac z Serial terminala:
-`Narzędzia → Monitor portu szeregowego` 
+`Narzędzia → Monitor portu szeregowego` odczytać adres i komendę dla każdego przycisku, który chcemy zaplanowac do przypisania odpowiedniej funkcji, w kodzie programu następnie należy ustawić te kody pilota dla definicji przycisków:
+```cpp
+#define rcCmdVolumeUp     0x0013   // Przycisk VOL+
+#define rcCmdVolumeDown   0x0008   // Przycisk VOL-
+#define rcCmdArrowRight   0x0014   // Przycisk w prawo - następna stacja / następny plik, od razu uruchamiane przejście
+#define rcCmdArrowLeft    0x0016   // Przycisk w lewo - poprzednia stacja / poprzedni plik, od razu uruchamiane przejście
+#define rcCmdArrowUp      0x0019   // Przycisk w górę - lista stacji / lista plików - krok do góry na przewijanej liście
+#define rcCmdArrowDown    0x0011   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
+#define rcCmdOk           0x0015   // Przycisk OK - zatwierdzenie wybranej stacji / banku / folderu / pliku
+#define rcCmdMode         0x000E   // Przycisk SOURCE - przełączanie radio internetowe / odtwarzacz plików
+#define rcCmdMute         0x000A   // Przycisk MUTE - wyciszenie
+#define rcCmdKey0         0x004C   // Przycisk "0"
+#define rcCmdKey1         0x0040   // Przycisk "1"
+#define rcCmdKey2         0x0041   // Przycisk "2"
+#define rcCmdKey3         0x0042   // Przycisk "3"
+#define rcCmdKey4         0x0044   // Przycisk "4"
+#define rcCmdKey5         0x0045   // Przycisk "5"
+#define rcCmdKey6         0x0046   // Przycisk "6"
+#define rcCmdKey7         0x0048   // Przycisk "7"
+#define rcCmdKey8         0x0049   // Przycisk "8"
+#define rcCmdKey9         0x004A   // Przycisk "9"
+#define rcCmdBankUp       0x001B   // Przycisk FF+ - numer banku, krok w dół
+#define rcCmdBankDown     0x0017   // Przycisk FF- - numer banku, krok w górę
+#define rcCmdPauseResume  0x0012   // Przycisk Play / Pause
+#define rcCmdFolderList   0x004E   // Przycisk GOTO - wyświetlenie listy folderów z zaznaczeniem aktualnego folderu
+#define rcCmdStop         0x0010   // Przycisk STOP
+#define rcCmdProg         0x000F   // Przycisk PROG
+#define rcCmdMemory       0x001F   // Przycisk MEMORY
+```
 
 ---
 
