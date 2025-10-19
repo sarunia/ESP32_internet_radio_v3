@@ -82,7 +82,8 @@ Działa w dwóch trybach:
 - 📡 **Internet Radio**
 - 💾 **Odtwarzacz plików audio z karty SD**
 
-Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odbywa się z pilota IR**.
+Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odbywa się z pilota IR**. Należy we własnym zakresie przypisać przyciski swojego pilota, korzystajac z Serial terminala:
+`Narzędzia → Monitor portu szeregowego` 
 
 ---
 
