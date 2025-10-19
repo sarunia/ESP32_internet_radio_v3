@@ -267,4 +267,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 👤 **Author:** _[Sławomir Malinowski / MAJSTER XXL / sarunia]_  
-🌍 **Repository:** [GitHub – Internet-Radio-v3](https://github.com/TwojProfil/Internet-Radio-v3)
+🌍 **Repository:** [GitHub – Internet-Radio-v3](https://github.com/sarunia/ESP32_internet_radio_v3)
