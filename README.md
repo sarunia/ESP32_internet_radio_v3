@@ -21,8 +21,6 @@ Aby poprawnie uruchomić projekt, wykonaj poniższe kroki:
 - Wklej poniższy adres:
 https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
-markdown
-Skopiuj kod
 - Następnie przejdź do:  
 `Narzędzia → Płytka → Menedżer płytek`
 - Wyszukaj **esp32** i zainstaluj wersję **3.3.2**
