@@ -87,12 +87,12 @@ Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odb
 ```cpp
 #define rcCmdVolumeUp     0x0013   // Przycisk VOL+
 #define rcCmdVolumeDown   0x0008   // Przycisk VOL-
-#define rcCmdArrowRight   0x0014   // Przycisk w prawo - następna stacja / następny plik, od razu uruchamiane przejście
-#define rcCmdArrowLeft    0x0016   // Przycisk w lewo - poprzednia stacja / poprzedni plik, od razu uruchamiane przejście
-#define rcCmdArrowUp      0x0019   // Przycisk w górę - lista stacji / lista plików - krok do góry na przewijanej liście
-#define rcCmdArrowDown    0x0011   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
-#define rcCmdOk           0x0015   // Przycisk OK - zatwierdzenie wybranej stacji / banku / folderu / pliku
-#define rcCmdMode         0x000E   // Przycisk SOURCE - przełączanie radio internetowe / odtwarzacz plików
+#define rcCmdArrowRight   0x0014   // Przycisk w prawo - następna stacja, następny plik, od razu uruchamiane przejście
+#define rcCmdArrowLeft    0x0016   // Przycisk w lewo - poprzednia stacja, poprzedni plik, od razu uruchamiane przejście
+#define rcCmdArrowUp      0x0019   // Przycisk w górę - lista stacji, lista plików - krok do góry na przewijanej liście
+#define rcCmdArrowDown    0x0011   // Przycisk w dół - lista stacji, lista plikow - krok w dół na przewijanej liście
+#define rcCmdOk           0x0015   // Przycisk OK - zatwierdzenie wybranej stacji, banku, folderu, pliku
+#define rcCmdMode         0x000E   // Przycisk SOURCE - przełączanie radio internetowe, odtwarzacz plików
 #define rcCmdMute         0x000A   // Przycisk MUTE - wyciszenie
 #define rcCmdKey0         0x004C   // Przycisk "0"
 #define rcCmdKey1         0x0040   // Przycisk "1"
