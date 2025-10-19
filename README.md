@@ -57,13 +57,14 @@ Pobierz plik `.zip`, a następnie:
 
 Projekt wykorzystuje czcionki **FreeFonts** oraz jedną niestandardową czcionkę cyfrową.  
 📁 Wszystkie czcionki są **dołączone do projektu** – nie wymagają osobnej instalacji.
-
+`
 #include <FreeSans12pt7b.h>       // Sans, 12pt – nagłówki i opisy
 #include <FreeMonoBold12pt7b.h>   // Mono Bold, 12pt – dane liczbowe
 #include <FreeMonoBold18pt7b.h>   // Mono Bold, 18pt – liczniki
 #include <FreeSansBold18pt7b.h>   // Sans Bold, 18pt – wyróżnienia
 #include <FreeMono18pt7b.h>       // Mono, 18pt – siatki danych
 #include <DS_DIGII35pt7b.h>       // Styl 7-segmentowy, 35pt – duży zegar
+`
 
 ---
 
