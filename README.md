@@ -140,8 +140,7 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 /bank01.txt ... bank18.txt ← listy stacji radiowych
 /MUSIC/ ← katalog z plikami audio
 
-yaml
-Skopiuj kod
+
 
 ---
 
@@ -214,5 +213,5 @@ The project automatically saves and restores playback state after reboot.
 
 ---
 
-👤 **Author:** _[Twoje Imię lub Nick]_  
+👤 **Author:** _[Sławomir Malinowski / MAJSTER XXL / sarunia]_  
 🌍 **Repository:** [GitHub – Internet-Radio-v3](https://github.com/TwojProfil/Internet-Radio-v3)
