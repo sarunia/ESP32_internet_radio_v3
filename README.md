@@ -24,6 +24,12 @@ https://espressif.github.io/arduino-esp32/package_esp32_index.json
 - Następnie przejdź do:  
 `Narzędzia → Płytka → Menedżer płytek`
 - Wyszukaj **esp32** i zainstaluj wersję **3.3.2**
+- Ustaw zakres dla pamięci flash:  
+`Narzędzia → Flash Size → 8MB(64Mb)`
+- Ustaw rozmiar partycji:  
+`Narzędzia → Partition Scheme → 8M with spiffs`
+- Włącz pamięć PSRAM:  
+`Narzędzia → PSRAM → OPI PSRAM`
 
 ---
 
