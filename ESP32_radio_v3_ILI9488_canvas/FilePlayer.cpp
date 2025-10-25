@@ -1,5 +1,4 @@
 #include "FilePlayer.h"
-#include "FilePlayer.h"
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
 
@@ -138,6 +137,7 @@ void displayPlayer()
 
 }
 
+
 // Wyświetlanie przewijalnej listy plików z podświetleniem
 void displayFiles()
 {
@@ -258,6 +258,7 @@ void scrollDownFiles()
   //displayFiles();
 }
 
+
 // Przewijanie listy plików w górę
 void scrollUpFiles()
 {
@@ -340,7 +341,6 @@ void scrollDownFolders()
 
   displayFolders();
 }
-
 
 
 void saveFileAndFolderIndexes()
@@ -443,9 +443,6 @@ void loadFileAndFolderIndexes()
 }
 
 
-
-
-
 void playFile()
 {
   // Pobierz ścieżkę pliku z tablicy
@@ -480,7 +477,6 @@ void playFile()
     }
   }
 }
-
 
 
 // Funkcja do wyświetlania folderów na ekranie z uwzględnieniem zaznaczenia
@@ -838,7 +834,6 @@ void playFromSelectedFolder()
         displayPlayer();
       }
 
-
     } // koniec while(isPlaying)
 
     // Jeśli przycisk MENU menu został wywołany wewnątrz, przerwij odtwarzanie i wyjdź
@@ -876,7 +871,6 @@ void playFromSelectedFolder()
 
   Serial.println("Wyjście z playFromSelectedFolder()");
 }
-
 
 
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)

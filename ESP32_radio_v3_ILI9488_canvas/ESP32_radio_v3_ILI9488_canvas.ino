@@ -170,7 +170,6 @@ bool IRstopButton = false;        // Flaga określająca użycie zdalnego sterow
 bool IRprogButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk PROG
 bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk MEMORY
 
-
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
 
@@ -241,9 +240,7 @@ const char* ntpServer = "pool.ntp.org";      // Adres serwera NTP używany do sy
 // Deklaracja obiektu JSON
 StaticJsonDocument<1024> doc;     // Przyjęto rozmiar JSON na 1024 bajty
 
-
 MenuOption currentOption = INTERNET_RADIO;  // Aktualnie wybrana opcja menu (domyślnie radio internetowe)
-
 
 /*===============    Definicja portu i deklaracje zmiennych do obsługi odbiornika IR    =============*/
 int recv_pin = 15;                          // Pin odbiornika IR
@@ -416,6 +413,7 @@ void IRAM_ATTR pulseISR()
   runTime2 = esp_timer_get_time();
 }
 
+
 // Odwrócenie kolejności bitów z otrzymanego ciągu z nadajnika IR
 uint32_t reverse_bits(uint32_t inval, int bits)
 {
@@ -427,6 +425,7 @@ uint32_t reverse_bits(uint32_t inval, int bits)
   return 0;
 }
   
+
 // ------------------------------------------------------------
 // Funkcja przypisująca odpowiednie flagi do przycisków pilota
 // ------------------------------------------------------------
@@ -618,7 +617,6 @@ void handleDigitInput(int digit)
 }
 
 
-
 // Funkcja sprawdza, czy plik jest plikiem audio na podstawie jego rozszerzenia
 bool isAudioFile(const char *fileNameString)
 {
@@ -643,6 +641,7 @@ bool isAudioFile(const char *fileNameString)
           strcasecmp(ext, ".alac") == 0);  // ALAC: bezstratny format od Apple, podobny do FLAC
 }
 
+
 // Wysłanie komendy do wyświetlacza TFT
 void tft_command(uint8_t cmd)
 { 
@@ -652,6 +651,7 @@ void tft_command(uint8_t cmd)
   CS_IDLE;            // Dezaktywacja wyświetlacza (CS HIGH)
 }
 
+
 // Wysłanie danych do wyświetlacza TFT
 void tft_data(uint8_t d)
 { 
@@ -660,6 +660,7 @@ void tft_data(uint8_t d)
   spi.transfer(d);    // Wysłanie bajtu danych przez SPI
   CS_IDLE;            // Dezaktywacja wyświetlacza (CS HIGH)
 }
+
 
 // Ustawienie obszaru roboczego (okna) na wyświetlaczu TFT
 void tft_setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
@@ -684,6 +685,7 @@ void tft_setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 
   tft_command(0x2C);                // Komenda: Memory Write (rozpoczęcie wysyłania danych do wybranego okna)
 }
+
 
 // Inicjalizacja wyświetlacza
 void tft_init()
@@ -787,7 +789,6 @@ void tft_pushCanvas(GFXcanvas16 &c)
 }
 
 
-
 /**
  * Wypełnia prostokąt na wyświetlaczu TFT kolorem RGB.
  *
@@ -832,7 +833,6 @@ void tft_fillRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t r, uin
 
   CS_IDLE; // Zakończ transmisję (odznacz chip select)
 }
-
 
 
 /**
@@ -906,6 +906,7 @@ void drawCharFont(const GFXfont *font, int16_t x, int16_t y, char c, uint8_t r, 
   }
 }
 
+
 // Rysowanie napisu dla dowolnej czcionki
 void drawStringFont(const GFXfont* font, int16_t x, int16_t y, const char* str, uint8_t r, uint8_t g, uint8_t b)
 {
@@ -930,6 +931,7 @@ void drawStringFont(const GFXfont* font, int16_t x, int16_t y, const char* str, 
     cursorX += glyph->xAdvance;
   }
 }
+
 
 // Funkcja do pobierania danych z API z serwera pogody openweathermap.org
 void getWeatherData()
@@ -970,6 +972,7 @@ void getWeatherData()
   
   http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
 }
+
 
 // Funkcja do aktualizacji danych pogodowych
 void updateWeather()
@@ -1583,66 +1586,24 @@ void fetchStationsFromServer()
   // URL stacji dla danego banku
   String url;
 
-  // Wybierz URL na podstawie bank_nr za pomocą switch
-  switch (bank_nr)
+  // Wszystkie URL-e zapisane w tablicy
+  const char* STATIONS_URLS[] = {
+    STATIONS_URL1, STATIONS_URL2, STATIONS_URL3, STATIONS_URL4,
+    STATIONS_URL5, STATIONS_URL6, STATIONS_URL7, STATIONS_URL8,
+    STATIONS_URL9, STATIONS_URL10, STATIONS_URL11, STATIONS_URL12,
+    STATIONS_URL13, STATIONS_URL14, STATIONS_URL15, STATIONS_URL16,
+    STATIONS_URL17, STATIONS_URL18
+  };
+
+  // Wybór adresu z tablicy
+  if (bank_nr >= 1 && bank_nr <= 18)
   {
-    case 1:
-      url = STATIONS_URL1;
-      break;
-    case 2:
-      url = STATIONS_URL2;
-      break;
-    case 3:
-      url = STATIONS_URL3;
-      break;
-    case 4:
-      url = STATIONS_URL4;
-      break;
-    case 5:
-      url = STATIONS_URL5;
-      break;
-    case 6:
-      url = STATIONS_URL6;
-      break;
-    case 7:
-      url = STATIONS_URL7;
-      break;
-    case 8:
-      url = STATIONS_URL8;
-      break;
-    case 9:
-      url = STATIONS_URL9;
-      break;
-    case 10:
-      url = STATIONS_URL10;
-      break;
-    case 11:
-      url = STATIONS_URL11;
-      break;
-    case 12:
-      url = STATIONS_URL12;
-      break;
-    case 13:
-      url = STATIONS_URL13;
-      break;
-    case 14:
-      url = STATIONS_URL14;
-      break;
-    case 15:
-      url = STATIONS_URL15;
-      break;
-    case 16:
-      url = STATIONS_URL16;
-      break;
-    case 17:
-      url = STATIONS_URL17;
-      break;
-    case 18:
-      url = STATIONS_URL18;
-      break;
-    default:
-      Serial.println("Nieprawidłowy numer banku");
-      return;
+    url = STATIONS_URLS[bank_nr - 1];   // Indeksy zaczynają się od 0
+  }
+  else
+  {
+    Serial.println("Nieprawidłowy numer banku");
+    return;
   }
 
   // Tworzenie nazwy pliku dla danego banku
@@ -1944,7 +1905,6 @@ void changeStation()
     canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
     canvas.println(mainName);              // Wyświetlenie nazwy stacji
     tft_pushCanvas(canvas);
-
 
     // Wydrukuj nazwę stacji i link na serialu
     Serial.print("Aktualnie wybrana stacja: ");
@@ -2336,87 +2296,87 @@ void switchWeatherData()
 // Funkcja do przełączania karuzeli kalendarza
 void showCalendarCarousel()
 {
-  unsigned long now = millis();
-  unsigned long interval = (messageIndex == 3) ? 5000 : 10000;
+  unsigned long now = millis();                               // Pobiera aktualny czas systemowy w milisekundach
+  unsigned long interval = (messageIndex == 3) ? 5000 : 10000; // Krótszy czas (5s) dla imienin, 10s dla pozostałych komunikatów
 
-  if (now - lastSwitchCalendar > interval)
+  if (now - lastSwitchCalendar > interval)                    // Sprawdza, czy upłynął czas na zmianę komunikatu
   {
-    lastSwitchCalendar = now;
+    lastSwitchCalendar = now;                                 // Aktualizuje czas ostatniej zmiany
 
     // Czyścimy obszar kalendarza (160–200)
-    canvas.fillRect(0, 160, TFT_WIDTH, 40, COLOR_BLACK);
+    canvas.fillRect(0, 160, TFT_WIDTH, 40, COLOR_BLACK);      // Czyszczenie prostokątnego obszaru ekranu przed wyświetleniem nowego tekstu
 
-    String msg;
+    String msg;                                                // Bufor na wiadomość do wyświetlenia
 
     if (messageIndex == 0)
     {
-      calendar = normalizePolish(calendar);
-      msg = "Dzis jest " + calendar + " r";
-      messageIndex++;
+      calendar = normalizePolish(calendar);                   // Zamienia polskie znaki diakrytyczne na poprawne
+      msg = "Dzis jest " + calendar + " r";                   // Tworzy komunikat z datą
+      messageIndex++;                                         // Przechodzi do następnego etapu karuzeli
     }
     else if (messageIndex == 1)
     {
-      msg = "Wschod Slonca " + sunrise + "  Zachod Slonca " + sunset;
+      msg = "Wschod Slonca " + sunrise + "  Zachod Slonca " + sunset; // Komunikat o wschodzie i zachodzie Słońca
       messageIndex++;
     }
     else if (messageIndex == 2)
     {
-      msg = "Dlugosc dnia " + dayLength;
+      msg = "Dlugosc dnia " + dayLength;                      // Komunikat o długości dnia
       messageIndex++;
     }
     else if (messageIndex == 3)
     {
-      if (namedayLines.empty())
+      if (namedayLines.empty())                               // Jeśli imieniny nie zostały jeszcze przetworzone na linie
       {
-        String tekst = "IMIENINY: " + namedays;
-        tekst = normalizePolish(tekst);
+        String tekst = "IMIENINY: " + namedays;               // Tworzy tekst imienin
+        tekst = normalizePolish(tekst);                       // Ujednolica polskie znaki
 
-        String tmp = tekst;
-        while (tmp.length() > 0)
+        String tmp = tekst;                                   // Tymczasowa kopia tekstu do podziału na linie
+        while (tmp.length() > 0)                              // Dopóki coś zostało do przetworzenia
         {
-          String line = tmp;
+          String line = tmp;                                  // Początkowo całość traktujemy jako jedną linię
           while (line.length() > 0)
           {
-            int16_t w = 0;
-            for (int i = 0; i < line.length(); i++)
+            int16_t w = 0;                                    // Szerokość tekstu w pikselach
+            for (int i = 0; i < line.length(); i++)           // Obliczanie szerokości tekstu znak po znaku
             {
               char c = line[i];
-              if (c < FreeSans12pt7b.first || c > FreeSans12pt7b.last) continue;
-              GFXglyph *glyph = &FreeSans12pt7b.glyph[c - FreeSans12pt7b.first];
-              w += glyph->xAdvance;
+              if (c < FreeSans12pt7b.first || c > FreeSans12pt7b.last) continue; // Pomija znaki spoza zakresu czcionki
+              GFXglyph *glyph = &FreeSans12pt7b.glyph[c - FreeSans12pt7b.first]; // Pobiera metryki znaku
+              w += glyph->xAdvance;                           // Sumuje szerokość znaku
             }
-            if (w <= 480) break;
-            int lastSpace = line.lastIndexOf(' ');
-            if (lastSpace < 0) break;
-            line = line.substring(0, lastSpace);
+            if (w <= 480) break;                              // Jeśli linia mieści się w szerokości ekranu – OK
+            int lastSpace = line.lastIndexOf(' ');            // Szuka ostatniej spacji do złamania linii
+            if (lastSpace < 0) break;                         // Jeśli brak spacji, przerwij (tekst za długi bez przerw)
+            line = line.substring(0, lastSpace);              // Ucina tekst do ostatniej spacji, by nie przekroczyć szerokości
           }
-          namedayLines.push_back(line);
-          tmp = tmp.substring(line.length());
-          tmp.trim();
+          namedayLines.push_back(line);                       // Dodaje gotową linię do listy
+          tmp = tmp.substring(line.length());                 // Usuwa przetworzoną część z tekstu
+          tmp.trim();                                         // Usuwa spacje z początku i końca
         }
-        namedayLineIndex = 0;
+        namedayLineIndex = 0;                                 // Resetuje indeks linii do wyświetlenia
       }
 
-      if (namedayLineIndex < namedayLines.size())
+      if (namedayLineIndex < namedayLines.size())              // Jeśli są jeszcze linie imienin do pokazania
       {
-        msg = namedayLines[namedayLineIndex];
-        namedayLineIndex++;
+        msg = namedayLines[namedayLineIndex];                  // Pobiera bieżącą linię
+        namedayLineIndex++;                                   // Przechodzi do następnej
       } 
-      else
+      else                                                    // Jeśli wszystkie linie zostały pokazane
       {
-        namedayLines.clear();
-        namedayLineIndex = 0;
-        messageIndex = 0;
+        namedayLines.clear();                                 // Czyści wektor linii imienin
+        namedayLineIndex = 0;                                 // Resetuje indeks
+        messageIndex = 0;                                     // Wraca na początek karuzeli (cykl od nowa)
       }
     }
 
     // Rysowanie tekstu w obszarze kalendarza
-    if (msg.length() > 0)
+    if (msg.length() > 0)                                    // Jeśli mamy tekst do pokazania
     {
-      canvas.setFont(&FreeSans12pt7b);
-      canvas.setTextColor(COLOR_SKYBLUE);
-      canvas.setCursor(0, 190);
-      canvas.print(msg);
+      canvas.setFont(&FreeSans12pt7b);                       // Ustawia czcionkę
+      canvas.setTextColor(COLOR_SKYBLUE);                    // Kolor tekstu – jasnoniebieski
+      canvas.setCursor(0, 190);                              // Ustawia pozycję startową tekstu
+      canvas.print(msg);                                     // Wyświetla wiadomość
     }
   }
 }
@@ -2582,15 +2542,14 @@ void my_audio_info(Audio::msg_t m)
       // --- Debug ---
       Serial.printf("info: ....... %s\n", m.msg);
     }
-      break;
-
+    break;
 
     case Audio::evt_eof:
     {
       Serial.printf("end of file:  %s\n", m.msg);
       fileEnd = true;
     }
-      break;
+    break;
 
     case Audio::evt_bitrate:        Serial.printf("bitrate: .... %s\n", m.msg); break; // icy-bitrate or bitrate from metadata
     case Audio::evt_icyurl:         Serial.printf("icy URL: .... %s\n", m.msg); break;
@@ -2646,22 +2605,22 @@ void my_audio_info(Audio::msg_t m)
     }
     break;
 
-
     case Audio::evt_lasthost:       Serial.printf("last URL: ... %s\n", m.msg); break;
     case Audio::evt_name:           Serial.printf("station name: %s\n", m.msg); break; // station name or icy-name
     case Audio::evt_streamtitle:
-      {
-        // Zapisz tytuł stacji/utworu
-        stationInfo = String(m.msg);
-        stationInfo.trim();
+    {
+      // Zapisz tytuł stacji/utworu
+      stationInfo = String(m.msg);
+      stationInfo.trim();
 
-        // Odśwież pełny ekran radia
-        displayRadio();
+      // Odśwież pełny ekran radia
+      displayRadio();
 
-        // Debug
-        Serial.printf("stream title: %s\n", m.msg);
-      }
-      break;
+      // Debug
+      Serial.printf("stream title: %s\n", m.msg);
+    }
+    break;
+
     case Audio::evt_icylogo:        Serial.printf("icy logo: ... %s\n", m.msg); break;
     case Audio::evt_icydescription: Serial.printf("icy descr: .. %s\n", m.msg); break;
     case Audio::evt_image: for(int i = 0; i < m.vec.size(); i += 2){
@@ -2670,34 +2629,6 @@ void my_audio_info(Audio::msg_t m)
     case Audio::evt_log   :         Serial.printf("audio_logs:   %s\n", m.msg); break;
     default:                        Serial.printf("message:..... %s\n", m.msg); break;
   }
-}
-
-
-String extractID3Field(const String &msg, const String &fieldName)
-{
-  // Szukaj "ID3 data: ... fieldName:" i "ID3 data: ... fieldName="
-  String key1 = "ID3 data: ... " + fieldName + ":";
-  String key2 = "ID3 data: ... " + fieldName + "=";
-
-  int index = msg.indexOf(key1);
-  String keyUsed = key1;
-  if (index == -1)
-  {
-    index = msg.indexOf(key2);
-    keyUsed = key2;
-  }
-
-  if (index != -1)
-  {
-    int start = index + keyUsed.length();
-    int lineEnd = msg.indexOf('\n', start);
-    if (lineEnd == -1) lineEnd = msg.length();
-    String value = msg.substring(start, lineEnd);
-    value.trim();
-    return value;
-  }
-
-  return ""; // brak wartości
 }
 
 
@@ -2791,10 +2722,6 @@ void displayMenu()
   // wyślij na ekran
   tft_pushCanvas(canvas);
 }
-
-
-
-
 
 
 // Funkcja dzieląca tekst na fragmenty mieszczące się w szerokości maxWidth
@@ -3204,7 +3131,6 @@ void loop()
   // Powrót do wyświetlania radia po bezczynności
   if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
   {
-    currentOption = INTERNET_RADIO;
     station_nr = previous_station_nr; 
     bank_nr = previous_bank_nr;
     displayActive = false;
