@@ -235,6 +235,254 @@ void displayFiles()
   tft_pushCanvas(canvas);
 }
 
+
+// Przewijanie listy plików w dół
+void scrollDownFiles()
+{
+  fileIndex++;
+  if (fileIndex >= filesCount) 
+  {
+    fileIndex = 0; // wróć na początek
+  }
+  Serial.print("Numer pliku do przodu: ");
+  Serial.println(fileIndex + 1);
+
+  currentSelection = fileIndex;
+
+  if (currentSelection >= firstVisibleLine + 6)  // max 6 wierszy
+  {
+    firstVisibleLine++;
+    if (firstVisibleLine > filesCount - 6) firstVisibleLine = filesCount - 6;
+  }
+
+  //displayFiles();
+}
+
+// Przewijanie listy plików w górę
+void scrollUpFiles()
+{
+  fileIndex--;
+  if (fileIndex < 0) 
+  {
+    fileIndex = filesCount - 1; // przejdź na ostatni
+  }
+  Serial.print("Numer pliku do tyłu: ");
+  Serial.println(fileIndex + 1);
+
+  currentSelection = fileIndex;
+
+  if (currentSelection < firstVisibleLine) 
+  {
+    firstVisibleLine--;
+    if (firstVisibleLine < 0) firstVisibleLine = 0;
+  }
+
+  //displayFiles();
+}
+
+
+// Przewijanie listy folderów w górę
+void scrollUpFolders()
+{
+  if (folderCount <= 0) return;
+
+  if (currentSelection > 0)
+  {
+    currentSelection--;
+    if (currentSelection < firstVisibleLine) firstVisibleLine = currentSelection;
+  }
+  else
+  {
+    currentSelection = folderCount - 1;
+    if (folderCount > maxVisibleFolders) firstVisibleLine = folderCount - maxVisibleFolders;
+    else firstVisibleLine = 0;
+  }
+
+  // korekty granic
+  if (firstVisibleLine < 0)
+    firstVisibleLine = 0;
+  if (firstVisibleLine > max(0, folderCount - maxVisibleFolders))
+    firstVisibleLine = max(0, folderCount - maxVisibleFolders);
+
+  // Zaktualizuj folderIndex, który może być używany w innych częściach programu
+  folderIndex = currentSelection;
+
+  //Serial.printf("scrollUpFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", currentSelection, firstVisibleLine, folderIndex);
+
+  displayFolders();
+}
+
+
+void scrollDownFolders()
+{
+  if (folderCount <= 0) return;
+
+  if (currentSelection < folderCount - 1)
+  {
+    currentSelection++;
+    if (currentSelection >= firstVisibleLine + maxVisibleFolders)
+      firstVisibleLine++;
+  }
+  else
+  {
+    currentSelection = 0;
+    firstVisibleLine = 0;
+  }
+
+  if (firstVisibleLine < 0)
+    firstVisibleLine = 0;
+  if (firstVisibleLine > max(0, folderCount - maxVisibleFolders))
+    firstVisibleLine = max(0, folderCount - maxVisibleFolders);
+
+  folderIndex = currentSelection;
+
+  //Serial.printf("scrollDownFolders: currentSelection=%d firstVisibleLine=%d folderIndex=%d\n", currentSelection, firstVisibleLine, folderIndex);
+
+  displayFolders();
+}
+
+
+
+void saveFileAndFolderIndexes()
+{
+  // ---- ZAPIS fileIndex ----
+  if (SD.exists("/fileIndex.txt"))
+  {
+    Serial.println("Plik fileIndex.txt już istnieje. Aktualizuję...");
+    myFile = SD.open("/fileIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(fileIndex);
+      myFile.close();
+      Serial.print("Zapisano fileIndex = ");
+      Serial.println(fileIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas zapisu do fileIndex.txt");
+    }
+  }
+  else
+  {
+    Serial.println("Plik fileIndex.txt nie istnieje. Tworzę nowy...");
+    myFile = SD.open("/fileIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(fileIndex);
+      myFile.close();
+      Serial.print("Utworzono i zapisano fileIndex = ");
+      Serial.println(fileIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia fileIndex.txt");
+    }
+  }
+
+  // ---- ZAPIS folderIndex ----
+  if (SD.exists("/folderIndex.txt"))
+  {
+    Serial.println("Plik folderIndex.txt już istnieje. Aktualizuję...");
+    myFile = SD.open("/folderIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(folderIndex);
+      myFile.close();
+      Serial.print("Zapisano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas zapisu do folderIndex.txt");
+    }
+  }
+  else
+  {
+    Serial.println("Plik folderIndex.txt nie istnieje. Tworzę nowy...");
+    myFile = SD.open("/folderIndex.txt", FILE_WRITE);
+    if (myFile)
+    {
+      myFile.println(folderIndex);
+      myFile.close();
+      Serial.print("Utworzono i zapisano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+    else
+    {
+      Serial.println("Błąd podczas tworzenia folderIndex.txt");
+    }
+  }
+}
+
+
+void loadFileAndFolderIndexes()
+{
+  if (SD.exists("/fileIndex.txt"))
+  {
+    File f = SD.open("/fileIndex.txt");
+    if (f)
+    {
+      fileIndex = f.parseInt();
+      f.close();
+      Serial.print("Odczytano fileIndex = ");
+      Serial.println(fileIndex);
+    }
+  }
+
+  if (SD.exists("/folderIndex.txt"))
+  {
+    File f = SD.open("/folderIndex.txt");
+    if (f)
+    {
+      folderIndex = f.parseInt();
+      f.close();
+      Serial.print("Odczytano folderIndex = ");
+      Serial.println(folderIndex);
+    }
+  }
+}
+
+
+
+
+
+void playFile()
+{
+  // Pobierz ścieżkę pliku z tablicy
+  String fullPath = files[fileIndex];
+
+  // Odtwórz tylko w przypadku, gdy to jest plik audio
+  if (isAudioFile(fullPath.c_str()))
+  {
+    audio.connecttoFS(SD, fullPath.c_str());
+    // Zerowanie poprzednich tagów ID3
+    artistString = "";
+    titleString = "";
+    albumString = "";
+    yearString = "";
+    id3tag = false;  // Flaga oznaczająca, że jeszcze nie mamy danych ID3
+
+    trackStartMillis = millis();
+    fileTime = "00h:00m:00s";
+    isPlaying = true;
+    Serial.print("Odtwarzanie pliku: ");
+    Serial.print(previous_fileIndex + 1);  // Liczymy od 1, nie od 0 na serialu
+    Serial.print("/");
+    Serial.print(filesCount); // Łączna liczba plików w folderze
+    Serial.print(" - ");
+    Serial.println(fullPath); // Pełna ścieżka pliku
+
+    // Usunięcie folderu ze ścieżki pliku (zostaje tylko nazwa pliku)
+    int lastSlashIndex = fullPath.lastIndexOf('/');
+    if (lastSlashIndex != -1)
+    {
+      fileNameString = fullPath.substring(lastSlashIndex + 1);  // Wycinanie nazwy pliku po ostatnim ukośniku
+    }
+  }
+}
+
+
+
 // Funkcja do wyświetlania folderów na ekranie z uwzględnieniem zaznaczenia
 void displayFolders()
 {
@@ -627,4 +875,134 @@ void playFromSelectedFolder()
   root.close();
 
   Serial.println("Wyjście z playFromSelectedFolder()");
+}
+
+
+
+void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath)
+{
+  folderCount = 0;
+
+  // Przejrzyj wszystkie pliki w katalogu
+  while (true)
+  {
+    File entry = dir.openNextFile();
+    
+    if (!entry)
+    {
+      break; // Koniec plików
+    }
+
+    if (entry.isDirectory())
+    {
+      // Utwórz pełną ścieżkę
+      String path = currentPath + "/" + entry.name();
+      
+      // Sprawdź, czy katalog to nie "System Volume Information"
+      if (path != "/System Volume Information")
+      {
+        directories[folderCount] = path; // Zapisz ścieżkę do tablicy
+        folderCount++; // Zwiększ licznik katalogów
+      }
+    }
+
+    entry.close();
+  }
+
+  // Sortowanie katalogów za pomocą funkcji porównującej
+  for (int i = 0; i < folderCount - 1; i++)
+  {
+    for (int j = i + 1; j < folderCount; j++)
+    {
+      if (compareStringsWithNumbers(directories[i], directories[j]) > 0)
+      {
+        String temp = directories[i];
+        directories[i] = directories[j];
+        directories[j] = temp;
+      }
+    }
+  }
+
+  // Wydrukuj na serial terminalu alfabetycznie posortowane katalogi
+  for (int i = 0; i < folderCount; i++)
+  {
+    Serial.print(i + 1); // Drukuje alfabetyczny numer katalogu
+    Serial.print(": ");
+    Serial.println(directories[i].substring(1)); // Drukuje ścieżkę bez pierwszego znaku
+  }
+
+  // Wyświetl na ekranie, jeśli to nie System Volume Information
+  for (int i = 0; i < folderCount; i++)
+  {
+    String fullPath = directories[i];
+  }
+}
+
+
+// Funkcja do porównywania ciągów uwzględniająca liczby
+int compareStringsWithNumbers(const String &a, const String &b)
+{
+  int i = 0, j = 0;
+  
+  while (i < a.length() && j < b.length())
+  {
+    // Wyciągnij kolejne znaki
+    char charA = a[i];
+    char charB = b[j];
+    
+    // Sprawdź, czy mamy do czynienia z liczbą w obu ciągach
+    if (isdigit(charA) && isdigit(charB))
+    {
+      // Wyciągnij pełne liczby
+      String numA, numB;
+      while (i < a.length() && isdigit(a[i]))
+      {
+        numA += a[i++];
+      }
+      while (j < b.length() && isdigit(b[j]))
+      {
+        numB += b[j++];
+      }
+
+      // Porównaj liczby jako liczby (nie tekstowo)
+      int intA = numA.toInt();
+      int intB = numB.toInt();
+      
+      if (intA != intB)
+      {
+        return intA - intB;
+      }
+    } 
+    else
+    {
+      // Porównaj inne znaki
+      if (charA != charB)
+      {
+        return charA - charB;
+      }
+      i++;
+      j++;
+    }
+  }
+  
+  // Jeżeli wszystko jest równe, porównaj długości
+  return a.length() - b.length();
+}
+
+
+// Funkcja do wylistowania katalogów z karty 
+void listDirectories(const char *dirname)
+{
+  File root = SD.open(dirname);
+  if (!root)
+  {
+    Serial.println("Błąd otwarcia katalogu!");
+    Serial.println(dirname);
+    return;
+  }
+  printDirectoriesAndSavePaths(root, 0, ""); // Początkowo pełna ścieżka jest pusta
+  Serial.println("Wylistowano katalogi z karty SD");
+  root.close();
+
+  displayFolders();
 }

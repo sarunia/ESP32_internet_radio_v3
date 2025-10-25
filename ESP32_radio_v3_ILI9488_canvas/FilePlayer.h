@@ -7,9 +7,7 @@
 #include "Audio.h"
 #include <Adafruit_GFX.h>
 
-extern Audio audio;
-
-extern GFXcanvas16 canvas;
+#define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
 #define COLOR_RED         RGB565(255, 0, 0)       // Czerwony
 #define COLOR_GREEN       RGB565(0, 255, 0)       // Zielony
@@ -34,9 +32,7 @@ extern GFXcanvas16 canvas;
 #define COLOR_NAVY        RGB565(0, 0, 128)      // Granatowy (navy)
 #define COLOR_GRAY        RGB565(128, 128, 128)  // Szary (gray)
 #define COLOR_OLIVE       RGB565(128, 128, 0)    // Oliwkowy (olive)
-#define COLOR_MAROON      RGB565(128, 0, 0)      // Ciemnoczerwony (maroon))
-
-#define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
+#define COLOR_MAROON      RGB565(128, 0, 0)      // Ciemnoczerwony (maroon)
 
 extern int volumeValue;
 extern int previous_fileIndex;
@@ -47,6 +43,7 @@ extern int fileIndex;
 extern int folderIndex;
 extern int firstVisibleLine;
 extern int maxVisibleLines;
+extern int maxVisibleFolders;
 extern int currentSelection;
 
 extern bool IRokButton;
@@ -98,6 +95,9 @@ enum MenuOption
 };
 
 extern MenuOption currentOption;
+extern File myFile;
+extern Audio audio;
+extern GFXcanvas16 canvas;
 
 String normalizePolish(String text);
 String fitTextToWidth(String text, int width);
@@ -108,17 +108,25 @@ void tft_pushCanvas(GFXcanvas16 &c);
 void displayPlayer();
 void displayFiles();
 void displayFolders();
+void scrollUpFiles();
+void scrollDownFiles();
+void scrollDownFolders();
+void scrollUpFolders();
 void playFromSelectedFolder();
 void playFile(String path);
 void stopFile();
+void saveFileAndFolderIndexes();
+void loadFileAndFolderIndexes();
+void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath);
 
 extern void processIRCode();
 extern void volumeSetFromRemote();
 extern void drawClock();
 extern bool isAudioFile(const char* name);
-extern void saveFileAndFolderIndexes();
-extern void scrollUpFiles();
-extern void scrollDownFiles();
+
 extern void displayMenu();
+extern void listDirectories(const char *dirname);
+
+int compareStringsWithNumbers(const String &a, const String &b);
 
 #endif
