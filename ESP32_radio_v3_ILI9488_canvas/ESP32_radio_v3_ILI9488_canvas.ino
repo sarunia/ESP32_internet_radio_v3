@@ -2648,7 +2648,7 @@ void drawClock()
   snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
   // Wyczyść obszar zegara
-  canvas.fillRect(245, 265, 240, 60, COLOR_BLACK);
+  canvas.fillRect(245, 265, 245, 60, COLOR_BLACK);
 
   // Narysuj zegar
   canvas.setFont(&DS_DIGII35pt7b);
@@ -2684,6 +2684,13 @@ void drawClock()
     canvas.setTextColor(COLOR_CYAN);
     canvas.setCursor(0, 310);
     canvas.print(fileTime);
+
+    if (randomMode == true)
+    {
+      canvas.setTextColor(COLOR_RED);
+      canvas.setCursor(185, 310);
+      canvas.print("RND");
+    }
   }
 
   tft_pushCanvas(canvas);
