@@ -1,7 +1,7 @@
 #include "FilePlayer.h"
-#include <Fonts/FreeSans12pt7b.h>
-#include <Fonts/FreeMonoBold12pt7b.h>
-
+#include <FreeSans12pt7b.h>
+#include <FreeMonoBold12pt7b.h>
+#include <FreeSansBold18pt7b.h>
 
 void displayPlayer()
 {
@@ -664,6 +664,29 @@ void playFromSelectedFolder()
         break;
       }
 
+      if (IRrandomButton)
+      {
+        IRrandomButton = false; // zresetuj flagę
+        randomMode = !randomMode; // przełącz stan
+        displayActive = true;
+        displayStartTime = millis();
+
+        displayRandomMode(randomMode); // pokaż na ekranie zmianę
+      }
+
+      if (randomMode && fileEnd)
+      {
+        fileEnd = false;
+        audio.stopSong();
+        isPlaying = false;
+
+        fileIndex = getRandomFileIndex(filesCount);
+        Serial.printf("Tryb RANDOM: wylosowano plik %d/%d\n", fileIndex + 1, filesCount);
+        saveFileAndFolderIndexes();
+
+        break; // wyjdź z wewnętrznej pętli, kontynuuj odtwarzanie z nowym fileIndex
+      }
+
       // Następny plik (pilot lub koniec pliku)
       if (playNextFile || IRrightArrow || fileEnd)
       {
@@ -817,6 +840,8 @@ void playFromSelectedFolder()
         audio.stopSong();
         Serial.println("Wciśnięto przycisk STOP - wyświetlam listę katalogów");
       }
+
+
 
       // Powrót do wyświetlania playera po bezczynności
       if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
@@ -999,4 +1024,73 @@ void listDirectories(const char *dirname)
   root.close();
 
   displayFolders();
+}
+
+// Funkcja przełączająca tryb odtwarzania plików w cyklu losowy <--> normalny
+void displayRandomMode(bool randomEnabled)
+{
+  // Czyścimy górny obszar
+  canvas.fillRect(0, 0, 480, 145, COLOR_BLACK);
+
+  canvas.setFont(&FreeSansBold18pt7b);
+  canvas.setTextColor(COLOR_CYAN);
+  canvas.setCursor(50, 40);
+  canvas.print("Tryb odtwarzania:");
+
+  if (randomEnabled)
+  {
+    canvas.setTextColor(COLOR_GREEN);
+    canvas.setCursor(0, 100);
+    canvas.print("Tryb losowy ON");
+    Serial.println("Tryb losowy ON");
+  }
+  else
+  {
+    canvas.setTextColor(COLOR_WHITE);
+    canvas.setCursor(0, 100);
+    canvas.print("Tryb losowy OFF");
+    Serial.println("Tryb losowy OFF");
+  }
+
+  tft_pushCanvas(canvas);
+}
+
+
+// ------------------------------------------------------------
+// Funkcja: getRandomFileIndex(int totalFiles)
+// ------------------------------------------------------------
+// Opis:
+//   Zwraca losowy indeks pliku z zakresu [0, totalFiles),
+//   gwarantując, że dany plik nie powtórzy się dopóki wszystkie
+//   pliki z folderu nie zostaną już odtworzone.
+// 
+// Zastosowanie:
+//   Używana w trybie RANDOM odtwarzacza plików (randomMode),
+//   aby każdy utwór został wylosowany tylko raz.
+// ------------------------------------------------------------
+int getRandomFileIndex(int totalFiles)
+{
+  static std::vector<int> usedIndices;        // pamięta indeksy już użytych plików między wywołaniami funkcji
+  if (totalFiles <= 0) return 0;              // zabezpieczenie: brak plików → zwróć 0
+
+  // Reset puli, jeśli wszystkie pliki zostały już wykorzystane
+  if ((int)usedIndices.size() >= totalFiles)
+  {
+    usedIndices.clear();                      // czyścimy listę, żeby rozpocząć nowy cykl losowań
+  }
+
+  int randomIndex;
+  bool unique = false;                        // flaga oznaczająca, czy wylosowany indeks jest unikalny
+
+  // Pętla losowania dopóki nie trafimy na indeks nieużywany wcześniej
+  do
+  {
+    randomIndex = random(0, totalFiles);      // losujemy numer pliku z zakresu [0, totalFiles)
+    // sprawdzamy, czy taki indeks już był użyty
+    unique = (std::find(usedIndices.begin(), usedIndices.end(), randomIndex) == usedIndices.end());
+  }
+  while (!unique);                            // powtarzaj, dopóki nie trafisz na unikalny numer
+
+  usedIndices.push_back(randomIndex);         // dodaj nowy indeks do listy wykorzystanych
+  return randomIndex;                         // zwróć wylosowany, unikalny indeks pliku
 }

@@ -150,6 +150,8 @@ bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wycisze
 bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
 bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
+bool randomMode = false;
+
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
 
@@ -169,6 +171,7 @@ bool IRmuteTrigger = false;       // Flaga określająca użycie zdalnego sterow
 bool IRstopButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk STOP
 bool IRprogButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk PROG
 bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk MEMORY
+bool IRrandomButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk RANDOM
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -297,6 +300,7 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdStop         0x0010   // Przycisk STOP
 #define rcCmdProg         0x000F   // Przycisk PROG
 #define rcCmdMemory       0x001F   // Przycisk MEMORY
+#define rcCmdRandom       0x001A   // Przycisk RANDOM
 
 String inputBuffer = "";       // Bufor na wciśnięte cyfry
 unsigned long inputStartTime;  // Czas rozpoczęcia wpisywania numeru
@@ -467,6 +471,7 @@ void processIRCode()
     else if (ir_code == rcCmdStop)       IRstopButton   = true;
     else if (ir_code == rcCmdProg)       IRprogButton   = true;
     else if (ir_code == rcCmdMemory)     IRmemoryButton   = true;
+    else if (ir_code == rcCmdRandom)     IRrandomButton   = true;
 
     // --- Przyciski numeryczne ---
     else if (ir_code == rcCmdKey0) handleDigitInput(0);

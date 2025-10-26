@@ -6,6 +6,7 @@
 #include <SD.h>
 #include "Audio.h"
 #include <Adafruit_GFX.h>
+#include <vector>
 
 #define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
@@ -53,6 +54,7 @@ extern bool IRdownArrow;
 extern bool IRrightArrow;
 extern bool IRleftArrow;
 extern bool IRsourceButton;
+extern bool IRrandomButton;
 
 extern bool fileSelection;
 extern bool folderSelection;
@@ -65,6 +67,7 @@ extern bool menuEnable;
 extern bool playNextFile;
 extern bool playPreviousFile;
 extern bool fileEnd;
+extern bool randomMode;
 extern volatile bool updateClockFlag;
 
 extern String files[];
@@ -118,6 +121,7 @@ void stopFile();
 void saveFileAndFolderIndexes();
 void loadFileAndFolderIndexes();
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath);
+void displayRandomMode(bool randomEnabled);
 
 extern void processIRCode();
 extern void volumeSetFromRemote();
@@ -128,5 +132,6 @@ extern void displayMenu();
 extern void listDirectories(const char *dirname);
 
 int compareStringsWithNumbers(const String &a, const String &b);
+int getRandomFileIndex(int totalFiles);
 
 #endif
