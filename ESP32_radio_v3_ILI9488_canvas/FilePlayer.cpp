@@ -36,9 +36,11 @@ void displayPlayer()
 
     // Tytuł
     titleString = normalizePolish(titleString);
+    String labelTitle = "Tytuł: ";
+    labelTitle = normalizePolish(labelTitle);
     canvas.setTextColor(COLOR_YELLOW);
     canvas.setCursor(x, y);
-    canvas.print("Tytul: ");
+    canvas.print(labelTitle);
     canvas.setTextColor(COLOR_WHITE);
     canvas.print(fitTextToWidth(titleString, 460 - canvas.getCursorX()));
 
@@ -493,7 +495,8 @@ void displayFolders()
   }
 
   // Nagłówek
-  String header = "LISTA FOLDEROW   " + String(displayIndex + 1) + " / " + String(folderCount);
+  String header = "LISTA FOLDERÓW   " + String(displayIndex + 1) + " / " + String(folderCount);
+  header = normalizePolish(header);
   canvas.setFont(&FreeSans12pt7b);
   canvas.setTextColor(COLOR_CYAN);
   canvas.setCursor(50, 25);

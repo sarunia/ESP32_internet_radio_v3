@@ -1017,19 +1017,21 @@ void updateWeather()
   Serial.print("Wilgotność ");
   Serial.print(humidity);
   Serial.println(" %");
-  humidityStr = "Wilgotnosc " + String(humidity) + " %";
+  humidityStr = "Wilgotność " + String(humidity) + " %";
+  humidityStr = normalizePolish(humidityStr);
   
   Serial.print("Ciśnienie ");
   Serial.print(pressure);
   Serial.println(" hPa");
-  pressureStr = "Cisnienie " + String(pressure, 2) + " hPa";
+  pressureStr = "Ciśnienie " + String(pressure, 2) + " hPa";
+  pressureStr = normalizePolish(pressureStr);
   
   Serial.print("Opis pogody ");
   Serial.println(weatherDescription);
   Serial.print("Ikona ");
   Serial.println(icon);
   
-  Serial.print("Predkosc wiatru ");
+  Serial.print("Prędkość wiatru ");
   Serial.print(windSpeed, 2);
   Serial.println(" m/s");
   windStr = "Wiatr " + String(windSpeed) + " m/s";
@@ -1446,15 +1448,29 @@ void fetchAndDisplayCalendar()
   }
 }
 
-// Zamiana polskich znaków na "bezogonkowe"
+
 String normalizePolish(String s)
 {
-  s.replace("ą","a"); s.replace("ć","c"); s.replace("ę","e");
-  s.replace("ł","l"); s.replace("ń","n"); s.replace("ó","o");
-  s.replace("ś","s"); s.replace("ż","z"); s.replace("ź","z");
-  s.replace("Ą","A"); s.replace("Ć","C"); s.replace("Ę","E");
-  s.replace("Ł","L"); s.replace("Ń","N"); s.replace("Ó","O");
-  s.replace("Ś","S"); s.replace("Ż","Z"); s.replace("Ź","Z");
+  s.replace("ą", String(char(0x7F)));
+  s.replace("ć", String(char(0x80)));
+  s.replace("ę", String(char(0x81)));
+  s.replace("ł", String(char(0x82)));
+  s.replace("ń", String(char(0x83)));
+  s.replace("ó", String(char(0x84)));
+  s.replace("ś", String(char(0x85)));
+  s.replace("ź", String(char(0x86)));
+  s.replace("ż", String(char(0x87)));
+  s.replace("°", String(char(0x88)));
+  s.replace("Ą", String(char(0x89)));
+  s.replace("Ć", String(char(0x8A)));
+  s.replace("Ę", String(char(0x8B)));
+  s.replace("Ł", String(char(0x8C)));
+  s.replace("Ń", String(char(0x8D)));
+  s.replace("Ó", String(char(0x8E)));
+  s.replace("Ś", String(char(0x8F)));
+  s.replace("Ż", String(char(0x90)));
+  s.replace("Ź", String(char(0x91)));
+  s.replace("¹", String(char(0x7F)));
   return s;
 }
 
@@ -2315,18 +2331,21 @@ void showCalendarCarousel()
 
     if (messageIndex == 0)
     {
-      calendar = normalizePolish(calendar);                   // Zamienia polskie znaki diakrytyczne na poprawne
-      msg = "Dzis jest " + calendar + " r";                   // Tworzy komunikat z datą
+      //calendar = normalizePolish(calendar);                   // Zamienia polskie znaki diakrytyczne na poprawne
+      msg = "Dziś jest " + calendar + " r";                   // Tworzy komunikat z datą
+      msg = normalizePolish(msg);
       messageIndex++;                                         // Przechodzi do następnego etapu karuzeli
     }
     else if (messageIndex == 1)
     {
-      msg = "Wschod Slonca " + sunrise + "  Zachod Slonca " + sunset; // Komunikat o wschodzie i zachodzie Słońca
+      msg = "Wschód Słońca " + sunrise + "  Zachód Słońca " + sunset; // Komunikat o wschodzie i zachodzie Słońca
+      msg = normalizePolish(msg);
       messageIndex++;
     }
     else if (messageIndex == 2)
     {
-      msg = "Dlugosc dnia " + dayLength;                      // Komunikat o długości dnia
+      msg = "Długość dnia " + dayLength;                      // Komunikat o długości dnia
+      msg = normalizePolish(msg);
       messageIndex++;
     }
     else if (messageIndex == 3)
@@ -2984,8 +3003,10 @@ void loop()
 
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_CYAN);
-        canvas.setCursor(0, 25);
-        canvas.print("Ladowanie folderow z karty SD, czekaj...");
+        canvas.setCursor(30, 25);
+        String header = "Ładowanie folderów z karty SD, czekaj...";
+        header = normalizePolish(header);
+        canvas.print(header);
         tft_pushCanvas(canvas);
         audio.stopSong();
         listDirectories("/");        // Odczyt folderów z katalogu głównego
