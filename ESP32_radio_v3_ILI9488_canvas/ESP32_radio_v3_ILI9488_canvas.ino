@@ -51,8 +51,8 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 
 #define MAX_STATIONS 99           // Maksymalna liczba stacji radiowych, które mogą być przechowywane w jednym banku
 #define STATION_NAME_LENGTH 42    // Nazwa stacji wraz z bankiem i numerem stacji do wyświetlenia w pierwszej linii na ekranie
-#define MAX_DIRECTORIES 192       // Maksymalna liczba katalogów
-#define MAX_FILES 192             // Maksymalna liczba plików w katalogu
+#define MAX_DIRECTORIES 200       // Maksymalna liczba katalogów
+#define MAX_FILES 200             // Maksymalna liczba plików w katalogu
 
 #define STATIONS_URL1   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_01"      // Adres URL do pliku z listą stacji radiowych
 #define STATIONS_URL2   "https://raw.githubusercontent.com/sarunia/ESP32_stream/main/radio_v2_bank_02"      // Adres URL do pliku z listą stacji radiowych
@@ -137,6 +137,7 @@ bool mp3 = false;                 // Flaga określająca, czy aktualny plik audi
 bool flac = false;                // Flaga określająca, czy aktualny plik audio jest w formacie FLAC
 bool aac = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie AAC
 bool vorbis = false;              // Flaga określająca, czy aktualny plik audio jest w formacie VORBIS
+bool wav = false;                 // Flaga określająca, czy aktualny plik audio jest w formacie WAVE
 bool id3tag = false;              // Flaga określająca, czy plik audio posiada dane ID3
 bool menuEnable = false;          // Flaga określająca, czy na ekranie można wyświetlić menu
 bool bitratePresent = false;      // Flaga określająca, czy na serial terminalu pojawiła się informacja o bitrate - jako ostatnia dana spływajaca z info
@@ -1846,7 +1847,7 @@ void readStationFromSD()
 // Funkcja odpowiedzialna za zmianę aktualnie wybranej stacji radiowej.
 void changeStation()
 {
-  mp3 = flac = aac = vorbis = false;
+  mp3 = flac = aac = vorbis = wav = false;
   bitratePresent = false;
 
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
@@ -2471,22 +2472,27 @@ void my_audio_info(Audio::msg_t m)
       if (msg.indexOf("MP3Decoder") != -1)
       {
         mp3 = true; fileType = "MP3";
-        flac = false; aac = false; vorbis = false;
+        flac = false; aac = false; vorbis = false; wav = false;
       }
       if (msg.indexOf("FLACDecoder") != -1)
       {
         flac = true; fileType = "FLAC";
-        mp3 = false; aac = false; vorbis = false;
+        mp3 = false; aac = false; vorbis = false; wav = false;
       }
       if (msg.indexOf("AACDecoder") != -1)
       {
         aac = true; fileType = "AAC";
-        flac = false; mp3 = false; vorbis = false;
+        flac = false; mp3 = false; vorbis = false; wav = false;
       }
       if (msg.indexOf("VORBISDecoder") != -1)
       {
         vorbis = true; fileType = "VORB";
-        aac = false; flac = false; mp3 = false;
+        aac = false; flac = false; mp3 = false; wav = false;
+      }
+      if (msg.indexOf("FormatCode: 1") != -1)
+      {
+        wav = true; fileType = "WAV";
+        aac = false; flac = false; mp3 = false; vorbis = false;
       }
 
       // --- Nieznana zawartość ---
