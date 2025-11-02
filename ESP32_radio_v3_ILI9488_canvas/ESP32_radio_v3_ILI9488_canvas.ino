@@ -2516,7 +2516,9 @@ void my_audio_info(Audio::msg_t m)
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_PINK);
         canvas.setCursor(0, 70);
-        canvas.print("Nawiazywanie polaczenia, czekaj...");
+        String header = "Nawiązywanie połączenia, czekaj...";
+        header = normalizePolish(header);
+        canvas.print(header);
         tft_pushCanvas(canvas);
       }
 
