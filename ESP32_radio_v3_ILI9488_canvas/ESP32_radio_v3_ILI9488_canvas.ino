@@ -123,6 +123,10 @@ int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetla
 int maxVisibleLines = 6;          // Maksymalna liczba widocznych linii na ekranie OLED
 int maxVisibleFolders = 6;        // Maksymalna liczba folderów widocznych na ekranie w danym momencie
 
+int rssCycleIndex = 0;           // który news obecnie pokazujemy
+unsigned long lastRSSUpdate = 0; // czas ostatniego pobrania
+int totalRSSItems = 0;           // liczba wiadomości RSS
+
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
 
@@ -152,6 +156,7 @@ bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
 bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
 bool randomMode = false;
+bool RSSactive = false;
 
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
@@ -2091,6 +2096,9 @@ void displayStations()
 }
 
 
+
+
+
 // Funkcja do wyświetlania aktualnej stacji radiowej
 void displayRadio()
 {
@@ -2404,6 +2412,133 @@ void showCalendarCarousel()
       canvas.print(msg);                                     // Wyświetla wiadomość
     }
   }
+}
+
+
+// Funkcja pomocnicza do wyciągania zawartości tagów XML
+String extractTagContent(String src, String startTag, String endTag)
+{
+  int start = src.indexOf(startTag);
+  if (start < 0) return "";
+  start += startTag.length();
+  int end = src.indexOf(endTag, start);
+  if (end < 0) return "";
+  return src.substring(start, end);
+}
+
+
+// ------------------------------------------------------------
+// Funkcja pobierająca i wyświetlająca tytuły wiadomości z RSS
+// Źródło: https://www.polsatnews.pl/rss/polska.xml
+// ------------------------------------------------------------
+void fetchRSSFeedCycle()
+{
+  unsigned long now = millis();
+
+  // Aktualizuj co 1 minutę (60000 ms)
+  if (now - lastRSSUpdate < 60000) return;
+
+  lastRSSUpdate = now;
+
+  const char *rssUrl = "https://www.polsatnews.pl/rss/polska.xml";
+  HTTPClient http;
+  http.begin(rssUrl);
+  int httpCode = http.GET();
+
+  if (httpCode != HTTP_CODE_OK)
+  {
+    Serial.println("Błąd pobierania RSS.");
+    http.end();
+    return;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  // Policz, ile jest pozycji <item>
+  totalRSSItems = 0;
+  int pos = 0;
+  while ((pos = payload.indexOf("<item>", pos)) >= 0)
+  {
+    totalRSSItems++;
+    pos += 6;
+  }
+
+  if (totalRSSItems == 0)
+  {
+    Serial.println("Brak pozycji RSS do wyświetlenia.");
+    return;
+  }
+
+  // Znajdź i pokaż tylko jeden bieżący cykl (jedną wiadomość)
+  int currentItemIndex = 0;
+  pos = 0;
+  while ((pos = payload.indexOf("<item>", pos)) >= 0)
+  {
+    int endPos = payload.indexOf("</item>", pos);
+    if (endPos < 0) break;
+
+    if (currentItemIndex == rssCycleIndex)
+    {
+      String item = payload.substring(pos, endPos);
+      String title = extractTagContent(item, "<title>", "</title>");
+      String desc = extractTagContent(item, "<description>", "</description>");
+
+      // Usuń CDATA
+      title.replace("<![CDATA[", "");
+      title.replace("]]>", "");
+      desc.replace("<![CDATA[", "");
+      desc.replace("]]>", "");
+
+      Serial.println("Wiadomości RSS z POLSAT NEWS - kanał POLSKA: ");
+      Serial.println("----------------------------------------------------");
+      Serial.println(title);
+      title = normalizePolish(title);
+      Serial.println(desc);
+      desc = normalizePolish(desc);
+      Serial.println("----------------------------------------------------");
+      Serial.print("Aktualny cykl wiadomości RSS: ");
+      Serial.print(rssCycleIndex + 1);
+      Serial.print("/");
+      Serial.println(totalRSSItems);
+
+      displayActive = true;
+      displayStartTime = millis();
+      RSSactive = true;
+
+      // Czyszczenie ekranu
+      canvas.fillScreen(COLOR_BLACK);
+
+      // Nagłówek RSS
+      canvas.setFont(&FreeSansBold18pt7b);
+      canvas.setTextColor(COLOR_CYAN);
+      canvas.setCursor(0, 30);
+      canvas.print("  RSS Polsat News Polska");
+
+      // Tytuł wiadomości
+      //canvas.setFont(&FreeSans12pt7b);
+      //canvas.setTextColor(COLOR_YELLOW);
+      //canvas.setCursor(10, 70);
+      //drawWrappedCanvasText(title.c_str(), 10, 70, 460, 28);
+
+      // Opis wiadomości
+      canvas.setFont(&FreeSans12pt7b);
+      canvas.setTextColor(COLOR_YELLOW);
+      canvas.setCursor(0, 55);
+      drawWrappedCanvasText(desc.c_str(), 0, 55, 480, 24);
+
+      tft_pushCanvas(canvas);
+
+      break;
+    }
+
+    currentItemIndex++;
+    pos = endPos + 7;
+  }
+
+  // Przejdź do następnego cyklu
+  rssCycleIndex++;
+  if (rssCycleIndex >= totalRSSItems) rssCycleIndex = 0;
 }
 
 
@@ -2922,6 +3057,7 @@ void loop()
   audio.loop();               // Wykonuje główną pętlę dla obiektu audio (np. odtwarzanie dźwięku, obsługa audio)
   processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
+  fetchRSSFeedCycle();        // Funkcja pobiera informacje z kanału RSS Polsat News z działu Polska
   vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
   if ((displayActive == false) && (stationsList == false))
@@ -2933,7 +3069,10 @@ void loop()
   if (updateClockFlag == true)
   {
     updateClockFlag = false;
-    drawClock();
+    if (RSSactive == false)
+    {
+      drawClock();
+    }
   }
 
   if (IRrightArrow == true)  // Prawy przycisk kierunkowy w pilocie
@@ -3169,6 +3308,7 @@ void loop()
     displayStations();
   }
 
+
   // Powrót do wyświetlania radia po bezczynności
   if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
   {
@@ -3181,6 +3321,7 @@ void loop()
     inputBuffer = "";
     inputActive = false;
     bankSwitch = false;
+    RSSactive = false;
 
     Serial.println("Timeout: powrót do głównego ekranu radia");
     displayRadio();
