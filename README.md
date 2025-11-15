@@ -1,7 +1,10 @@
 # 🎧 Internet Radio v3 – ESP32-S3 Internet Radio & Audio Player (IR Remote Controlled)
 
-> 📻 **Pełna obsługa radia internetowego i plików audio z karty SD dla ESP32-S3 z wyświetlaczem TFT ILI9488 i DAC PCM5102A.**  
-> 💡 **Sterowanie wyłącznie pilotem IR (NEC 38 kHz)** — bez enkoderów i przycisków fizycznych.
+>  **Pełna obsługa radia internetowego i plików audio z karty SD dla ESP32-S3 z wyświetlaczem TFT ILI9488 i DAC PCM5102A.**  
+>  **Sterowanie wyłącznie pilotem IR (NEC 38 kHz)** — bez enkoderów i przycisków fizycznych.
+>  **Kartka z kalendarza, która w trybie radia wyświetla cyklicznie w linii informacje o dacie, wschodzie i zachodzie słonca, długości dnia, imieninach.**
+>  **Pogodynka, która w trybie radia wyświetla cyklicznie dane ze swojej lokalizacji - wymagany własny URL z openweathermap.org, pogodynka informuje o aktualnej temperaturze, wilgotności, ciśnieniu, wietrze.**
+>  **W trybie radia dodano wyświetlanie skróconych informacji z kanału RSS Polsat News Polska, informacje są podane na pełnym ekranie co 2 minuty przez czas 20 sekund** 
 
 ---
 
@@ -111,6 +114,7 @@ Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odb
 #define rcCmdStop         0x0010   // Przycisk STOP
 #define rcCmdProg         0x000F   // Przycisk PROG
 #define rcCmdMemory       0x001F   // Przycisk MEMORY
+#define rcCmdRandom       0x001A   // Przycisk RANDOM
 ```
 Przypisanie adresu i komendy dla każdego przycisku polega na sklejeniu 2 bajtów np. odczytany przycisk z serial terminala"
 `ADR:0 CMD:4B`
