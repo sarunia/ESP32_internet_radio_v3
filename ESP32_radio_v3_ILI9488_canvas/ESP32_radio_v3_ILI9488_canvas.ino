@@ -102,8 +102,6 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 #define COLOR_OLIVE       RGB565(128, 128, 0)    // Oliwkowy (olive)
 #define COLOR_MAROON      RGB565(128, 0, 0)      // Ciemnoczerwony (maroon)
 
-const unsigned long DISPLAY_TIMEOUT = 12000;
-
 int currentSelection = 0;         // Numer aktualnego wyboru na ekranie OLED
 int firstVisibleLine = 0;         // Numer pierwszej widocznej linii na ekranie OLED
 int station_nr;                   // Numer aktualnie wybranej stacji radiowej z listy
@@ -123,10 +121,11 @@ int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetla
 int maxVisibleLines = 6;          // Maksymalna liczba widocznych linii na ekranie OLED
 int maxVisibleFolders = 6;        // Maksymalna liczba folderów widocznych na ekranie w danym momencie
 
-int rssCycleIndex = 0;           // który news obecnie pokazujemy
-unsigned long lastRSSUpdate = 0; // czas ostatniego pobrania
-int totalRSSItems = 0;           // liczba wiadomości RSS
+int rssCycleIndex = 0;           // Index który news obecnie pokazujemy
+unsigned long lastRSSUpdate = 0; // Czas ostatniego pobrania
+int totalRSSItems = 0;           // Liczba wiadomości RSS
 
+unsigned long DISPLAY_TIMEOUT = 12000; // Czas bezczynności, po którym prpogram wraca do wyświetlania radia albo odtwarzanego pliku
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
 
@@ -2435,12 +2434,13 @@ void fetchRSSFeedCycle()
 {
   unsigned long now = millis();
 
-  // Aktualizuj co 1 minutę (60000 ms)
-  if (now - lastRSSUpdate < 60000) return;
+  // Aktualizuj co 2 minuty (120000 ms)
+  if (now - lastRSSUpdate < 120000) return;
 
   lastRSSUpdate = now;
 
   const char *rssUrl = "https://www.polsatnews.pl/rss/polska.xml";
+  //const char *rssUrl = "https://www.polsatnews.pl/rss/biznes.xml";
   HTTPClient http;
   http.begin(rssUrl);
   int httpCode = http.GET();
@@ -2491,6 +2491,7 @@ void fetchRSSFeedCycle()
       desc.replace("]]>", "");
 
       Serial.println("Wiadomości RSS z POLSAT NEWS - kanał POLSKA: ");
+      //Serial.println("Wiadomości RSS z POLSAT NEWS - kanał BIZNES: ");
       Serial.println("----------------------------------------------------");
       Serial.println(title);
       title = normalizePolish(title);
@@ -2514,6 +2515,7 @@ void fetchRSSFeedCycle()
       canvas.setTextColor(COLOR_CYAN);
       canvas.setCursor(0, 30);
       canvas.print("  RSS Polsat News Polska");
+      //canvas.print("  RSS Polsat News Biznes");
 
       // Tytuł wiadomości
       //canvas.setFont(&FreeSans12pt7b);
@@ -2528,6 +2530,8 @@ void fetchRSSFeedCycle()
       drawWrappedCanvasText(desc.c_str(), 0, 55, 480, 24);
 
       tft_pushCanvas(canvas);
+
+      DISPLAY_TIMEOUT = 20000;
 
       break;
     }
@@ -3014,6 +3018,8 @@ void setup()
   // Odczytaj numer banku i numer stacji z karty SD
   readStationFromSD();
   previous_bank_nr = bank_nr; // Wyrównanie numerów banku przy starcie
+  currentSelection = station_nr - 1;
+  firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
 
   loadFileAndFolderIndexes();
 
@@ -3312,6 +3318,7 @@ void loop()
   // Powrót do wyświetlania radia po bezczynności
   if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
   {
+    DISPLAY_TIMEOUT = 12000;
     station_nr = previous_station_nr; 
     bank_nr = previous_bank_nr;
     displayActive = false;
