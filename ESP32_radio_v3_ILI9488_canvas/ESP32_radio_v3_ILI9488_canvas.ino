@@ -178,6 +178,15 @@ bool IRprogButton = false;        // Flaga określająca użycie zdalnego sterow
 bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk MEMORY
 bool IRrandomButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk RANDOM
 
+// Zmienne do wykorzystania podczas nagrywania strumienia wprost z http bez dekodowania
+WiFiClient recClient;                     // Obiekt WiFiClient do połączenia HTTP z serwerem radia, używany do nagrywania
+File recordingFile;                       // Obiekt File reprezentujący plik na karcie SD do którego zapisujemy strumień MP3
+bool isRecording = false;                 // Flaga mówiąca, czy nagrywanie jest aktywne (true – nagrywa, false – zatrzymane)
+unsigned long lastRecordRead = 0;         // Czas w ms ostatniego odczytu danych z serwera, używany do wykrywania timeoutu
+String stationUrl = "";                    // Adres URL strumienia radiowego do nagrywania, np. "http://s0.radiohost.pl:8018/stream"
+#define RECORD_BUFFER_SIZE 4096            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
+uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania danych odebranych z serwera przed zapisaniem na SD
+
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
 
@@ -1876,7 +1885,7 @@ void changeStation()
 
   // Przechodzimy do odpowiedniego wiersza pliku
   int currentLine = 0;
-  String stationUrl = "";
+  stationUrl = "";
   
   while (bankFile.available())
   {
@@ -2158,8 +2167,15 @@ void displayRadio()
 
     // Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.)
     canvas.setTextColor(COLOR_SPRINGGREEN); // Kolor tekstu
-    canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
+    canvas.setCursor(115, 280);           // Pozycja w dolnej części ekranu
     canvas.print(fileType);               // Wyświetlenie typu pliku
+
+    if (isRecording == true)
+    {
+      canvas.setTextColor(COLOR_RED);   // Kolor tekstu
+      canvas.setCursor(180, 280);       // Pozycja w dolnej części ekranu
+      canvas.print("REC");              // Wyświetlenie znacznika nagrywania
+    }
 
     // Wysyłanie całego canvasu na ekran TFT
     //tft_pushCanvas(canvas);
@@ -2948,6 +2964,151 @@ String fitTextToWidth(String text, int maxWidth)
 }
 
 
+// Funkcja generuje aktualny timestamp w formacie przyjaznym do nazwy pliku, np. "2025_11_16_16_20"
+String getRecordTimestamp()
+{
+  struct tm timeinfo;  // Struktura do przechowywania daty i czasu lokalnego
+
+  // Pobranie lokalnego czasu. Jeśli nie uda się pobrać czasu, zwróć domyślny placeholder
+  if (!getLocalTime(&timeinfo))
+      return "0000_00_00_00_00";  // brak czasu → plik dostaje "zero" jako timestamp
+
+  char buffer[32];  // Bufor na sformatowaną datę i czas
+
+  // Sformatowanie daty i czasu w formacie YYYY_MM_DD_HH_MM
+  strftime(buffer, sizeof(buffer), "%Y_%m_%d_%H_%M", &timeinfo);
+
+  // Zwrócenie jako obiekt String, aby można było bezpośrednio użyć w nazwach plików
+  return String(buffer);
+}
+
+
+// Funkcja do rozpoczęcia nagrywania ze stacji podanej w stationUrl
+void startRecording()
+{
+  if (isRecording) return;                                  // Jeśli nagrywanie już trwa, zakończ funkcję
+
+  Serial.println("=== START RECORDING ===");                // Informacja w monitorze szeregowym o starcie nagrywania
+
+  // --- Parsowanie URL ---
+  String url = stationUrl;                                  // Skopiowanie URL stacji do zmiennej lokalnej
+  String host;                                              // Zmienna do przechowywania hosta (adres serwera)
+  uint16_t port = 80;                                       // Domyślny port HTTP, jeśli nie podano innego
+  String path = "/";                                        // Ścieżka zasobu, domyślnie "/"
+
+  int index = url.indexOf("://");                           // Sprawdzenie czy URL zawiera protokół (http:// lub https://)
+  if (index != -1) url = url.substring(index + 3);          // Usunięcie protokołu z URL, pozostaje host i path
+
+  int slashIndex = url.indexOf('/');                        // Szukanie pierwszego '/' po hoście
+  if (slashIndex != -1)
+  {
+    path = url.substring(slashIndex);                       // Wyciągnięcie ścieżki po '/' (path)
+    host = url.substring(0, slashIndex);                    // Wyciągnięcie hosta przed '/'
+  }
+  else
+  {
+    host = url;                                              // Jeśli nie ma '/', całość traktujemy jako host
+  }
+
+  int colonIndex = host.indexOf(':');                        // Sprawdzenie, czy host zawiera port (np. host:8018)
+  if (colonIndex != -1)
+  {
+    port = host.substring(colonIndex + 1).toInt();          // Odczyt portu jako liczby całkowitej
+    host = host.substring(0, colonIndex);                   // Usunięcie portu z hosta
+  }
+
+  Serial.print("Connecting to host: "); Serial.print(host); Serial.print(":"); Serial.println(port);  // Info o hoście i porcie
+  Serial.print("Path: "); Serial.println(path);             // Info o ścieżce do zasobu
+
+  // Połączenie do hosta
+  if (!recClient.connect(host.c_str(), port))               // Próba połączenia TCP do hosta
+  {
+    Serial.println("ERROR: Cannot connect to host!");       // Błąd, jeśli nie uda się połączyć
+    return;
+  }
+
+  // Wyślij żądanie GET
+  recClient.print(String("GET ") + path + " HTTP/1.1\r\n" + // Tworzenie żądania HTTP GET
+                  "Host: " + host + "\r\n" +
+                  "Connection: keep-alive\r\n" +
+                  "Icy-Metadata: 0\r\n\r\n");            // Wyłączenie ICY metadata, by mieć czysty MP3
+
+  // Utworzenie folderu Recorded jeśli nie istnieje
+  if (!SD.exists("/Recorded"))                               // Sprawdzenie czy folder istnieje
+  {
+    if (SD.mkdir("/Recorded"))                               // Próba utworzenia folderu
+      Serial.println("Folder /Recorded utworzony pomyślnie."); 
+    else
+    {
+      Serial.println("BŁĄD: Nie udało się utworzyć folderu /Recorded!"); 
+      return;                                               // Kończymy funkcję jeśli nie udało się utworzyć folderu
+    }
+  }
+
+  // Nazwa pliku
+  String fileName = "/Recorded/rec_test_" + getRecordTimestamp() + ".mp3";  // Generowanie nazwy pliku z aktualnym timestampem
+
+  // Otwarcie pliku
+  recordingFile = SD.open(fileName, FILE_WRITE);             // Otwarcie pliku do zapisu
+  if (!recordingFile)
+  {
+    Serial.println("ERROR: Cannot open file on SD!");     // Błąd, jeśli nie udało się otworzyć pliku
+    return;
+  }
+
+  Serial.print("Recording to: "); Serial.println(fileName);
+
+  isRecording = true;                                        // Ustawienie flagi, że nagrywanie trwa
+  lastRecordRead = millis();                                  // Zapamiętanie czasu rozpoczęcia odczytu danych
+}
+
+// Zatrzymanie nagrywania
+void stopRecording()
+{
+  if (!isRecording) return;                     // Jeśli nagrywanie nie trwa, nic nie robimy
+
+  Serial.println("=== STOP RECORDING ===");
+
+  isRecording = false;                          // Ustawienie flagi, że nagrywanie zostało zatrzymane
+
+  if (recordingFile)                            // Sprawdzenie, czy plik został otwarty
+  {
+    recordingFile.flush();                      // Zapisanie wszystkich danych do pliku (upewnienie się, że wszystko jest zapisane)
+    recordingFile.close();                      // Zamknięcie pliku na karcie SD
+  }
+
+  if (recClient.connected()) recClient.stop();  // Zamknięcie połączenia TCP z serwerem radia, jeśli jest aktywne
+}
+
+
+// Obsługa nagrywania strumienia w czasie rzeczywistym
+void handleRecording()
+{
+  if (!isRecording) return;                     // Jeśli nagrywanie nie trwa, nic nie robimy
+
+  while (recClient.available() > 0)             // Sprawdzamy, czy są dostępne dane z serwera
+  {
+    int len = recClient.read(buffer, RECORD_BUFFER_SIZE); // Odczyt do bufora danych (max RECORD_BUFFER_SIZE bajtów)
+    if (len > 0)
+    {
+      recordingFile.write(buffer, len);         // Zapis odczytanych bajtów bezpośrednio na kartę SD
+      lastRecordRead = millis();                // Aktualizacja czasu ostatniego odczytu danych (do wykrywania timeoutu)
+    }
+  }
+
+  // Timeout strumienia – jeśli np. 10 sekund nie przyszły nowe dane, zatrzymujemy nagrywanie
+  if (millis() - lastRecordRead > 10000)
+  {
+    Serial.println("Recording timeout!");
+    stopRecording();                             // Zatrzymanie nagrywania, zamknięcie pliku i połączenia
+  }
+}
+
+
+
+
+
+
 
 /*-------------------------------------------------------GŁÓWNY SETUP PROGRAMU----------------------------------------------------------*/
 
@@ -3063,13 +3224,15 @@ void loop()
   audio.loop();               // Wykonuje główną pętlę dla obiektu audio (np. odtwarzanie dźwięku, obsługa audio)
   processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
-  fetchRSSFeedCycle();        // Funkcja pobiera informacje z kanału RSS Polsat News z działu Polska
+
+  handleRecording();
   vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
-  if ((displayActive == false) && (stationsList == false))
+  if ((displayActive == false) && (stationsList == false) && (isRecording == false))
   {
     showCalendarCarousel();
     switchWeatherData();
+    fetchRSSFeedCycle();        // Funkcja pobiera informacje z kanału RSS Polsat News z działu Polska
   }
 
   if (updateClockFlag == true)
@@ -3312,6 +3475,25 @@ void loop()
     audio.stopSong();
     Serial.println("Wciśnięto przycisk STOP - wyświetlam listę stacji");
     displayStations();
+  }
+
+  if (IRmemoryButton == true)
+  {
+    IRmemoryButton = false;
+
+    if (!isRecording)
+    {
+      startRecording();
+      canvas.setFont(&FreeMonoBold12pt7b);
+      canvas.setTextColor(COLOR_RED);   // Kolor tekstu
+      canvas.setCursor(180, 280);       // Pozycja w dolnej części ekranu
+      canvas.print("REC");              // Wyświetlenie znacznika nagrywania
+    }
+    else
+    {
+      stopRecording();
+      displayRadio();
+    }
   }
 
 
