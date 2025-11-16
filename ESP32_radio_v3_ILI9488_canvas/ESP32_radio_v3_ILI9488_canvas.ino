@@ -184,7 +184,7 @@ File recordingFile;                       // Obiekt File reprezentujący plik na
 bool isRecording = false;                 // Flaga mówiąca, czy nagrywanie jest aktywne (true – nagrywa, false – zatrzymane)
 unsigned long lastRecordRead = 0;         // Czas w ms ostatniego odczytu danych z serwera, używany do wykrywania timeoutu
 String stationUrl = "";                    // Adres URL strumienia radiowego do nagrywania, np. "http://s0.radiohost.pl:8018/stream"
-#define RECORD_BUFFER_SIZE 4096            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
+#define RECORD_BUFFER_SIZE 8192            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
 uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania danych odebranych z serwera przed zapisaniem na SD
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
@@ -955,41 +955,44 @@ void drawStringFont(const GFXfont* font, int16_t x, int16_t y, const char* str, 
 // Funkcja do pobierania danych z API z serwera pogody openweathermap.org
 void getWeatherData()
 {
-  weatherServerConnection = false;
-  HTTPClient http;  // Utworzenie obiektu HTTPClient
-  
-  // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org
-  // String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
-  String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";
-
-  http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
-
-  int httpCode = http.GET();  // Wysłanie żądanie GET do serwera, aby pobrać dane pogodowe
-
-  if (httpCode == HTTP_CODE_OK)  // Sprawdzenie, czy odpowiedź z serwera była prawidłowa (kod 200 OK)
-  {
-    weatherServerConnection = true;
-    String payload = http.getString();  // Pobranie odpowiedzi z serwera w postaci ciągu znaków (JSON)
-    Serial.println("Odpowiedź JSON z API:");
-    Serial.println(payload); 
-
-    DeserializationError error = deserializeJson(doc, payload);  // Deserializujemy dane JSON do obiektu dokumentu
-    if (error)  // Sprawdzamy, czy deserializacja JSON zakończyła się niepowodzeniem
-    {
-      Serial.print(F("deserializeJson() failed: "));  // Jeśli jest błąd, drukujemy komunikat o błędzie
-      Serial.println(error.f_str());  // Wydruk szczegółów błędu deserializacji
-      return;  // Zakończenie funkcji w przypadku błędu
-    }
-
-    updateWeather();  // Jeśli deserializacja zakończyła się sukcesem, wywołujemy funkcję `updateWeather`, aby zaktualizować wyświetlacz i serial terminal
-  }
-  else  // Jeśli połączenie z serwerem nie powiodło się
+  if (isRecording == false)
   {
     weatherServerConnection = false;
-    Serial.println("Błąd połączenia z serwerem.");  
+    HTTPClient http;  // Utworzenie obiektu HTTPClient
+    
+    // Poniżej zdefiniuj swój unikalny URL zawierający dane lokalizacji wraz z kluczem API otrzymany po resetracji w serwisie openweathermap.org
+    // String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=your_own_API_key";
+    String url = "http://api.openweathermap.org/data/2.5/weather?q=Piła,pl&appid=cbc705bd4e66cb3422111f1533a78355";
+
+    http.begin(url);  // Inicjalizacja połączenia HTTP z podanym URL-em, otwieramy połączenie z serwerem.
+
+    int httpCode = http.GET();  // Wysłanie żądanie GET do serwera, aby pobrać dane pogodowe
+
+    if (httpCode == HTTP_CODE_OK)  // Sprawdzenie, czy odpowiedź z serwera była prawidłowa (kod 200 OK)
+    {
+      weatherServerConnection = true;
+      String payload = http.getString();  // Pobranie odpowiedzi z serwera w postaci ciągu znaków (JSON)
+      Serial.println("Odpowiedź JSON z API:");
+      Serial.println(payload); 
+
+      DeserializationError error = deserializeJson(doc, payload);  // Deserializujemy dane JSON do obiektu dokumentu
+      if (error)  // Sprawdzamy, czy deserializacja JSON zakończyła się niepowodzeniem
+      {
+        Serial.print(F("deserializeJson() failed: "));  // Jeśli jest błąd, drukujemy komunikat o błędzie
+        Serial.println(error.f_str());  // Wydruk szczegółów błędu deserializacji
+        return;  // Zakończenie funkcji w przypadku błędu
+      }
+
+      updateWeather();  // Jeśli deserializacja zakończyła się sukcesem, wywołujemy funkcję `updateWeather`, aby zaktualizować wyświetlacz i serial terminal
+    }
+    else  // Jeśli połączenie z serwerem nie powiodło się
+    {
+      weatherServerConnection = false;
+      Serial.println("Błąd połączenia z serwerem.");  
+    }
+    
+    http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
   }
-  
-  http.end();  // Zakończenie połączenia HTTP, zamykamy zasoby
 }
 
 
@@ -3078,6 +3081,8 @@ void stopRecording()
   }
 
   if (recClient.connected()) recClient.stop();  // Zamknięcie połączenia TCP z serwerem radia, jeśli jest aktywne
+
+  displayRadio();
 }
 
 
