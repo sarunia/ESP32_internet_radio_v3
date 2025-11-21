@@ -18,6 +18,7 @@
 #include "SPI.h"                  // Biblioteka do obsługi komunikacji SPI (ekran TFT, karta SD itp.)
 #include <Adafruit_GFX.h>         // Uniwersalna biblioteka graficzna Adafruit GFX (podstawy rysowania, obsługa czcionek)
 #include "FilePlayer.h"           // Obsługa odtwarzacza plików przeniesiona tutaj
+#include <WiFiClientSecure.h>
 
 // Definicje pinów dla SPI wyświetlacza TFT typu ILI9488
 #define TFT_CS    5    // Pin CS (Chip Select) – wybór układu TFT
@@ -125,7 +126,7 @@ int rssCycleIndex = 0;           // Index który news obecnie pokazujemy
 unsigned long lastRSSUpdate = 0; // Czas ostatniego pobrania
 int totalRSSItems = 0;           // Liczba wiadomości RSS
 
-unsigned long DISPLAY_TIMEOUT = 12000; // Czas bezczynności, po którym prpogram wraca do wyświetlania radia albo odtwarzanego pliku
+unsigned long DISPLAY_TIMEOUT = 12000; // Czas bezczynności, po którym program wraca do wyświetlania radia albo odtwarzanego pliku
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
 
@@ -180,12 +181,16 @@ bool IRrandomButton = false;      // Flaga określająca użycie zdalnego sterow
 
 // Zmienne do wykorzystania podczas nagrywania strumienia wprost z http bez dekodowania
 WiFiClient recClient;                     // Obiekt WiFiClient do połączenia HTTP z serwerem radia, używany do nagrywania
+WiFiClientSecure recSecure;               // dla HTTPS
+bool useSSL = false;                      // flaga – jaki klient jest użyty
 File recordingFile;                       // Obiekt File reprezentujący plik na karcie SD do którego zapisujemy strumień MP3
 bool isRecording = false;                 // Flaga mówiąca, czy nagrywanie jest aktywne (true – nagrywa, false – zatrzymane)
 unsigned long lastRecordRead = 0;         // Czas w ms ostatniego odczytu danych z serwera, używany do wykrywania timeoutu
 String stationUrl = "";                    // Adres URL strumienia radiowego do nagrywania, np. "http://s0.radiohost.pl:8018/stream"
 #define RECORD_BUFFER_SIZE 8192            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
 uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania danych odebranych z serwera przed zapisaniem na SD
+bool headersRead = false;
+bool isChunked = false;
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -1865,6 +1870,7 @@ void changeStation()
 {
   mp3 = flac = aac = vorbis = wav = false;
   bitratePresent = false;
+  isRecording = false;
 
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
@@ -2986,84 +2992,287 @@ String getRecordTimestamp()
 }
 
 
-// Funkcja do rozpoczęcia nagrywania ze stacji podanej w stationUrl
-void startRecording()
+// ----------------------------------------------------------------------------
+// Pomoc: pobiera jedną linię z serwera (kończącą się na \r\n)
+// ----------------------------------------------------------------------------
+String readHttpLine(WiFiClient& client)
 {
-  if (isRecording) return;                                  // Jeśli nagrywanie już trwa, zakończ funkcję
-
-  Serial.println("=== START RECORDING ===");                // Informacja w monitorze szeregowym o starcie nagrywania
-
-  // --- Parsowanie URL ---
-  String url = stationUrl;                                  // Skopiowanie URL stacji do zmiennej lokalnej
-  String host;                                              // Zmienna do przechowywania hosta (adres serwera)
-  uint16_t port = 80;                                       // Domyślny port HTTP, jeśli nie podano innego
-  String path = "/";                                        // Ścieżka zasobu, domyślnie "/"
-
-  int index = url.indexOf("://");                           // Sprawdzenie czy URL zawiera protokół (http:// lub https://)
-  if (index != -1) url = url.substring(index + 3);          // Usunięcie protokołu z URL, pozostaje host i path
-
-  int slashIndex = url.indexOf('/');                        // Szukanie pierwszego '/' po hoście
-  if (slashIndex != -1)
+  String line = "";
+  while (true)
   {
-    path = url.substring(slashIndex);                       // Wyciągnięcie ścieżki po '/' (path)
-    host = url.substring(0, slashIndex);                    // Wyciągnięcie hosta przed '/'
+    int c = client.read();
+    if (c < 0) return line;
+    if (c == '\n') break;
+    if (c == '\r') continue;
+    line += (char)c;
+  }
+  return line;
+}
+
+
+// ----------------------------------------------------------------------------
+// Parsowanie chunked-transfer
+// Zwraca ilość bajtów chunku, 0 = koniec strumienia
+// ----------------------------------------------------------------------------
+int readChunkSize(WiFiClient& c)
+{
+  String line = readHttpLine(c);
+  int size = (int)strtol(line.c_str(), NULL, 16);
+
+  Serial.print("[CHUNK] Rozmiar chunku (hex): ");
+  Serial.print(line);
+  Serial.print("  dec: ");
+  Serial.println(size);
+
+  return size;
+}
+
+
+// ----------------------------------------------------------------------------
+// Pobieranie headers HTTP + obsługa redirect
+// Zwraca:
+//  0 - OK, można czytać dane
+//  1 - redirect → w zmiennej newUrl zwrócony nowy adres
+//  -1 - błąd
+// ----------------------------------------------------------------------------
+int readHttpHeaders(WiFiClient& c, String& newUrl)
+{
+  while (c.connected())
+  {
+    String line = readHttpLine(c);
+    if (line.length() == 0) break; // koniec nagłówków
+
+    Serial.println("[HDR] " + line);
+
+    if (line.startsWith("Location: "))
+    {
+      newUrl = line.substring(10);
+      Serial.println("[REDIRECT] Nowy URL → " + newUrl);
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+// ----------------------------------------------------------------------------
+// Łączenie HTTP/HTTPS z obsługą redirect oraz chunked
+// ----------------------------------------------------------------------------
+bool connectAndStartStream(String url)
+{
+  bool isHttps = url.startsWith("https://");
+
+  // Wytnij protokół
+  if (url.startsWith("http://")) url = url.substring(7);
+  if (url.startsWith("https://")) url = url.substring(8);
+
+  String host;
+  String path = "/";
+  uint16_t port = isHttps ? 443 : 80;
+
+  int slashPos = url.indexOf('/');
+  if (slashPos >= 0)
+  {
+    host = url.substring(0, slashPos);
+    path = url.substring(slashPos);
   }
   else
   {
-    host = url;                                              // Jeśli nie ma '/', całość traktujemy jako host
+    host = url;
   }
 
-  int colonIndex = host.indexOf(':');                        // Sprawdzenie, czy host zawiera port (np. host:8018)
-  if (colonIndex != -1)
+  // Port?
+  int colonPos = host.indexOf(':');
+  if (colonPos >= 0)
   {
-    port = host.substring(colonIndex + 1).toInt();          // Odczyt portu jako liczby całkowitej
-    host = host.substring(0, colonIndex);                   // Usunięcie portu z hosta
+    port = host.substring(colonPos + 1).toInt();
+    host = host.substring(0, colonPos);
   }
 
-  Serial.print("Connecting to host: "); Serial.print(host); Serial.print(":"); Serial.println(port);  // Info o hoście i porcie
-  Serial.print("Path: "); Serial.println(path);             // Info o ścieżce do zasobu
+  Serial.printf("[CONNECT] %s://%s:%u%s\n",
+                isHttps ? "https" : "http", host.c_str(), port, path.c_str());
 
-  // Połączenie do hosta
-  if (!recClient.connect(host.c_str(), port))               // Próba połączenia TCP do hosta
+  // --- TCP połączenie ---
+  bool ok = false;
+
+  if (isHttps)
   {
-    Serial.println("ERROR: Cannot connect to host!");       // Błąd, jeśli nie uda się połączyć
-    return;
+    recSecure.setInsecure();      // pozwala na samopodpisane certyfikaty
+    ok = recSecure.connect(host.c_str(), port);
+  }
+  else
+  {
+    ok = recClient.connect(host.c_str(), port);
   }
 
-  // Wyślij żądanie GET
-  recClient.print(String("GET ") + path + " HTTP/1.1\r\n" + // Tworzenie żądania HTTP GET
-                  "Host: " + host + "\r\n" +
-                  "Connection: keep-alive\r\n" +
-                  "Icy-Metadata: 0\r\n\r\n");            // Wyłączenie ICY metadata, by mieć czysty MP3
-
-  // Utworzenie folderu Recorded jeśli nie istnieje
-  if (!SD.exists("/Recorded"))                               // Sprawdzenie czy folder istnieje
+  if (!ok)
   {
-    if (SD.mkdir("/Recorded"))                               // Próba utworzenia folderu
-      Serial.println("Folder /Recorded utworzony pomyślnie."); 
-    else
+    Serial.println("[ERROR] Nie można połączyć z hostem!");
+    return false;
+  }
+
+  WiFiClient* c = isHttps ? (WiFiClient*)&recSecure : (WiFiClient*)&recClient;
+
+  // --- Wysyłamy GET ---
+  (*c).print(
+      String("GET ") + path + " HTTP/1.1\r\n" +
+      "Host: " + host + "\r\n" +
+      "Connection: keep-alive\r\n" +
+      "Icy-Metadata: 0\r\n\r\n"
+  );
+
+  // --- Odczytaj nagłówki ---
+  String redirectUrl;
+  int hdr = readHttpHeaders(*c, redirectUrl);
+
+  if (hdr == 1)
+  {
+    Serial.println("[INFO] Wykryto redirect → przełączam się");
+    (*c).stop();
+    return connectAndStartStream(redirectUrl); // REKURSYWNE przełączenie
+  }
+
+  return true;
+}
+
+
+// ----------------------------------------------------------------------------
+// START RECORDING (z obsługą HTTPS, redirect, chunków)
+// ----------------------------------------------------------------------------
+void startRecording()
+{
+  if (isRecording) return;
+
+  Serial.println("\n=== START RECORDING ===");
+
+  // Utwórz folder /Recorded
+  if (!SD.exists("/Recorded"))
+  {
+    if (!SD.mkdir("/Recorded"))
     {
-      Serial.println("BŁĄD: Nie udało się utworzyć folderu /Recorded!"); 
-      return;                                               // Kończymy funkcję jeśli nie udało się utworzyć folderu
+      Serial.println("[ERROR] Nie mogę utworzyć folderu /Recorded");
+      return;
     }
   }
 
   // Nazwa pliku
-  String fileName = "/Recorded/rec_test_" + getRecordTimestamp() + ".mp3";  // Generowanie nazwy pliku z aktualnym timestampem
+  String fileName = "/Recorded/rec_" + getRecordTimestamp() + ".mp3";
 
-  // Otwarcie pliku
-  recordingFile = SD.open(fileName, FILE_WRITE);             // Otwarcie pliku do zapisu
+  recordingFile = SD.open(fileName, FILE_WRITE);
   if (!recordingFile)
   {
-    Serial.println("ERROR: Cannot open file on SD!");     // Błąd, jeśli nie udało się otworzyć pliku
+    Serial.println("[ERROR] Nie mogę otworzyć pliku!");
     return;
   }
 
-  Serial.print("Recording to: "); Serial.println(fileName);
+  Serial.println("[FILE] " + fileName);
 
-  isRecording = true;                                        // Ustawienie flagi, że nagrywanie trwa
-  lastRecordRead = millis();                                  // Zapamiętanie czasu rozpoczęcia odczytu danych
+  // --- Połącz HTTP/HTTPS z obsługą redirectów ---
+  if (!connectAndStartStream(stationUrl))
+  {
+    Serial.println("[ERROR] Połączenie nieudane");
+    recordingFile.close();
+    return;
+  }
+
+  isRecording = true;
+  lastRecordRead = millis();
 }
+
+
+// ----------------------------------------------------------------------------
+// HANDLE RECORDING — OBSŁUGA NAGRYWANIA STRUMIENIA (HTTP + chunked)
+// ----------------------------------------------------------------------------
+void handleRecording()
+{
+  if (!isRecording) return;
+
+  WiFiClient* c = recSecure.connected() ? (WiFiClient*)&recSecure : (WiFiClient*)&recClient;
+
+  // 1. Odczyt nagłówków
+  if (!headersRead)
+  {
+    if (!c->available()) return;
+
+    // czytamy linia po linii
+    while (c->available())
+    {
+      String line = readHttpLine(*c);
+
+      if (line.length() == 0)
+      {
+        headersRead = true;
+        Serial.println("[HDR] --- KONIEC NAGLOWKOW ---");
+        break;
+      }
+
+      Serial.println("[HDR] " + line);
+
+      if (line.startsWith("Transfer-Encoding:"))
+      {
+        if (line.indexOf("chunked") >= 0)
+        {
+          isChunked = true;
+          Serial.println("[INFO] Transfer-Encoding: chunked (OK)");
+        }
+      }
+    }
+    return; // nagłówki właśnie odczytane
+  }
+
+  // 2. Odczyt danych chunked
+  if (isChunked)
+  {
+    while (c->available())
+    {
+      int chunkSize = readChunkSize(*c);
+      if (chunkSize <= 0)
+      {
+        Serial.println("[END] Koniec chunków → zamykam plik");
+        stopRecording();
+        return;
+      }
+
+      Serial.printf("[CHUNK] Odbieram %d bajtów\n", chunkSize);
+
+      int remaining = chunkSize;
+      while (remaining > 0)
+      {
+        int n = c->read(buffer, min(remaining, RECORD_BUFFER_SIZE));
+        if (n <= 0) break;
+
+        recordingFile.write(buffer, n);
+        remaining -= n;
+        lastRecordRead = millis();
+      }
+
+      // CRLF po chunku
+      c->read();
+      c->read();
+    }
+  }
+  else
+  {
+    // 3. Odczyt zwykłego strumienia (non-chunked)
+    while (c->available())
+    {
+      int n = c->read(buffer, RECORD_BUFFER_SIZE);
+      if (n > 0)
+      {
+        recordingFile.write(buffer, n);
+        lastRecordRead = millis();
+      }
+    }
+  }
+
+  // Timeout
+  if (millis() - lastRecordRead > 5000)
+  {
+    Serial.println("[TIMEOUT] Brak danych → zatrzymuję nagrywanie");
+    stopRecording();
+  }
+}
+
 
 // Zatrzymanie nagrywania
 void stopRecording()
@@ -3084,32 +3293,6 @@ void stopRecording()
 
   displayRadio();
 }
-
-
-// Obsługa nagrywania strumienia w czasie rzeczywistym
-void handleRecording()
-{
-  if (!isRecording) return;                     // Jeśli nagrywanie nie trwa, nic nie robimy
-
-  while (recClient.available() > 0)             // Sprawdzamy, czy są dostępne dane z serwera
-  {
-    int len = recClient.read(buffer, RECORD_BUFFER_SIZE); // Odczyt do bufora danych (max RECORD_BUFFER_SIZE bajtów)
-    if (len > 0)
-    {
-      recordingFile.write(buffer, len);         // Zapis odczytanych bajtów bezpośrednio na kartę SD
-      lastRecordRead = millis();                // Aktualizacja czasu ostatniego odczytu danych (do wykrywania timeoutu)
-    }
-  }
-
-  // Timeout strumienia – jeśli np. 10 sekund nie przyszły nowe dane, zatrzymujemy nagrywanie
-  if (millis() - lastRecordRead > 10000)
-  {
-    Serial.println("Recording timeout!");
-    stopRecording();                             // Zatrzymanie nagrywania, zamknięcie pliku i połączenia
-  }
-}
-
-
 
 
 
@@ -3231,7 +3414,7 @@ void loop()
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
 
   handleRecording();
-  vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
+  vTaskDelay(2);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
   if ((displayActive == false) && (stationsList == false) && (isRecording == false))
   {
@@ -3482,7 +3665,7 @@ void loop()
     displayStations();
   }
 
-  if (IRmemoryButton == true)
+  if ((IRmemoryButton == true) && (mp3 == true))
   {
     IRmemoryButton = false;
 
@@ -3490,8 +3673,8 @@ void loop()
     {
       startRecording();
       canvas.setFont(&FreeMonoBold12pt7b);
-      canvas.setTextColor(COLOR_RED);   // Kolor tekstu
-      canvas.setCursor(180, 280);       // Pozycja w dolnej części ekranu
+      canvas.setTextColor(COLOR_RED);
+      canvas.setCursor(180, 280);
       canvas.print("REC");              // Wyświetlenie znacznika nagrywania
     }
     else
