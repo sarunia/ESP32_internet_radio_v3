@@ -3412,7 +3412,6 @@ void loop()
   audio.loop();               // Wykonuje główną pętlę dla obiektu audio (np. odtwarzanie dźwięku, obsługa audio)
   processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
-
   handleRecording();
   vTaskDelay(2);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
@@ -3665,11 +3664,11 @@ void loop()
     displayStations();
   }
 
-  if ((IRmemoryButton == true) && (mp3 == true))
+  if (IRmemoryButton == true)
   {
     IRmemoryButton = false;
 
-    if (!isRecording)
+    if ((!isRecording) && (mp3 == true))
     {
       startRecording();
       canvas.setFont(&FreeMonoBold12pt7b);
