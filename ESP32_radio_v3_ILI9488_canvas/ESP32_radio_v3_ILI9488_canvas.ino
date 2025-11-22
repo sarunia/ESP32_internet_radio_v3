@@ -192,6 +192,20 @@ uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania 
 bool headersRead = false;
 bool isChunked = false;
 
+
+// --- Menu PROG ---
+bool progMenuActive = false;      // Czy menu PROG jest obecnie aktywne
+int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
+
+// Stan funkcji
+bool calendarEnabled = true;
+bool weatherEnabled = true;
+bool rssEnabled = true;
+
+bool cfgCalendar = true;
+bool cfgWeather  = true;
+bool cfgRSS      = true;
+
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
 
@@ -3295,7 +3309,120 @@ void stopRecording()
 }
 
 
+// -------------------------------------------------------------
+//  Wyświetlanie menu ustawień (program menu)
+//  Pokazuje trzy opcje: Kalendarz, Pogoda, RSS
+//  Zaznaczona opcja zmienia kolor na żółty
+//  Teksty ON/OFF pochodzą ze zmiennych cfgCalendar / cfgWeather / cfgRSS
+// -------------------------------------------------------------
+void displayProgMenu()
+{
+  canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);      // Czyści cały ekran menu
 
+  canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
+  canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
+  canvas.setCursor(100, 30);                         // Pozycja tekstu "USTAWIENIA:"
+  canvas.println("USTAWIENIA:");                     // Nagłówek menu
+
+  canvas.setFont(&FreeSans12pt7b);                   // Zmiana na mniejszą czcionkę dla opcji
+
+  const char* options[3] =
+  {
+    cfgCalendar ? "Kalendarz: ON" : "Kalendarz: OFF",         // Opcja 1: kalendarz
+    cfgWeather  ? "Pogoda: ON"    : "Pogoda: OFF",             // Opcja 2: pogoda
+    cfgRSS      ? "Informacje RSS: ON" : "Informacje RSS: OFF" // Opcja 3: RSS
+  };
+
+  for (int i = 0; i < 3; i++)                                   // Pętla przez 3 pozycje menu
+  {
+    if (i == progMenuIndex)
+      canvas.setTextColor(COLOR_YELLOW);                       // Podświetlenie aktywnej opcji
+    else
+      canvas.setTextColor(COLOR_WHITE);                        // Kolor pozostałych
+
+    canvas.setCursor(40, 80 + i * 60);                         // Pozycje pionowe kolejnych linii
+    canvas.print(options[i]);                                  // Wyświetlenie tekstu opcji
+  }
+
+  tft_pushCanvas(canvas);                                      // Wysłanie zawartości do wyświetlacza
+}
+
+
+// -----------------------------------------------------------------------
+//  saveSettingsToSD()
+//  Zapisuje aktualne ustawienia (kalendarz, pogoda, RSS) do pliku settings.txt
+//  Na karcie SD. Każda wartość zapisana jako 1 lub 0.
+// -----------------------------------------------------------------------
+void saveSettingsToSD()
+{
+  File f = SD.open("/settings.txt", FILE_WRITE);      // Otwórz plik do zapisu
+  if (!f)                                             // Sprawdź, czy plik się otworzył
+  {
+    Serial.println("Błąd: nie mogę zapisać settings.txt");  // Błąd otwarcia
+    return;                                         // Przerwij funkcję
+  }
+
+  f.print("calendar=");                               // Zapis ustawienia kalendarza
+  f.println(cfgCalendar ? 1 : 0);                     // Zapisz 1 lub 0
+
+  f.print("weather=");                                // Zapis ustawienia pogody
+  f.println(cfgWeather ? 1 : 0);                      // Zapisz 1 lub 0
+
+  f.print("rss=");                                    // Zapis ustawienia RSS
+  f.println(cfgRSS ? 1 : 0);                          // Zapisz 1 lub 0
+
+  f.close();                                          // Zamknij plik
+  Serial.println("Ustawienia zapisane do settings.txt"); // Potwierdzenie
+}
+
+
+// -----------------------------------------------------------------------
+//  loadSettingsFromSD()
+//  Wczytuje ustawienia (kalendarz, pogoda, RSS) z pliku settings.txt
+//  Jeśli plik nie istnieje, tworzy nowy z domyślnymi wartościami.
+// -----------------------------------------------------------------------
+void loadSettingsFromSD()
+{
+  if (!SD.exists("/settings.txt"))                     // Sprawdź, czy plik istnieje
+  {
+    Serial.println("Brak settings.txt – tworzę nowy z domyślnymi wartościami."); // Info
+    saveSettingsToSD();                               // Zapisz domyślne ustawienia
+    return;                                          // Zakończ funkcję
+  }
+
+  File f = SD.open("/settings.txt", FILE_READ);       // Otwórz plik do odczytu
+  if (!f)                                             // Sprawdź, czy udało się otworzyć
+  {
+    Serial.println("Błąd: nie mogę otworzyć settings.txt do odczytu."); // Info o błędzie
+    return;                                          // Zakończ funkcję
+  }
+
+  while (f.available())                               // Czytaj plik linia po linii
+  {
+    String line = f.readStringUntil('\n');          // Wczytaj linię
+    line.trim();                                    // Usuń białe znaki z początku i końca
+
+    if (line.startsWith("calendar="))               // Jeśli linia dotyczy kalendarza
+    {
+        cfgCalendar = (line.substring(9).toInt() == 1); // Zamień 1/0 na true/false
+    }
+    else if (line.startsWith("weather="))           // Jeśli linia dotyczy pogody
+    {
+        cfgWeather = (line.substring(8).toInt() == 1);  // Zamień 1/0 na true/false
+    }
+    else if (line.startsWith("rss="))               // Jeśli linia dotyczy RSS
+    {
+        cfgRSS = (line.substring(4).toInt() == 1);      // Zamień 1/0 na true/false
+    }
+  }
+
+  f.close();                                          // Zamknij plik
+
+  Serial.println("Wczytano konfigurację:");          // Wyświetl w konsoli
+  Serial.printf("  calendar: %d\n", cfgCalendar);    // Status kalendarza
+  Serial.printf("  weather : %d\n", cfgWeather);     // Status pogody
+  Serial.printf("  rss     : %d\n", cfgRSS);         // Status RSS
+}
 
 
 /*-------------------------------------------------------GŁÓWNY SETUP PROGRAMU----------------------------------------------------------*/
@@ -3341,8 +3468,9 @@ void setup()
     Serial.println("Błąd pamięci PSRAM");
   }
 
-  // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jeśli pliki już istnieją to funkcja sprawdza ich obecność
+  // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jeśli pliki już istnieją to funkcja sprawdza ich obecność, potem ładuje ustawienia użytkownika
   SDinit();
+  loadSettingsFromSD();
 
   // Wyczyść cały ekran
   canvas.fillScreen(COLOR_BLACK);
@@ -3410,26 +3538,102 @@ void setup()
 void loop()
 {
   audio.loop();               // Wykonuje główną pętlę dla obiektu audio (np. odtwarzanie dźwięku, obsługa audio)
-  processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przyciskow z pilota zdalnego sterowania
-  volumeSetFromRemote();      // Obsługa regulacji głośności z pilota zdalnego sterowania
-  handleRecording();
+  processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przycisków z pilota IR
+  volumeSetFromRemote();      // Obsługa regulacji głośności z pilota IR
+  handleRecording();          // Obsługa nagrywania strumienia MP3 na SD
   vTaskDelay(2);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
-  if ((displayActive == false) && (stationsList == false) && (isRecording == false))
+  // Wyświetlanie informacji dodatkowych, jeśli ekran nieaktywny i nie nagrywamy
+  if (!displayActive && !stationsList && !isRecording)
   {
-    showCalendarCarousel();
-    switchWeatherData();
-    fetchRSSFeedCycle();        // Funkcja pobiera informacje z kanału RSS Polsat News z działu Polska
+    if (cfgCalendar) showCalendarCarousel();   // Jeśli kalendarz włączony, wyświetl karuzelę kalendarza
+    if (cfgWeather)  switchWeatherData();      // Jeśli pogoda włączona, wyświetl dane pogodowe
+    if (cfgRSS)      fetchRSSFeedCycle();      // Jeśli RSS włączony, pobierz i wyświetl kanał RSS
   }
 
+  // Aktualizacja zegara co sekundę
   if (updateClockFlag == true)
   {
-    updateClockFlag = false;
-    if (RSSactive == false)
+    updateClockFlag = false;                   // Reset flagi
+    if (RSSactive == false)                    // Jeśli RSS nie jest wyświetlany
     {
-      drawClock();
+      drawClock();                            // Rysuj aktualny czas na ekranie
     }
   }
+
+  // ------- MENU PROG (funkcje dodatkowe) ------- 
+  if (IRprogButton == true)  // Sprawdzenie, czy wciśnięto przycisk PROG na pilocie
+  {
+    IRprogButton = false;    // Zerowanie flagi przycisku
+
+    progMenuActive = !progMenuActive;   // Toggle włącz/wyłącz menu PROG
+    displayActive = progMenuActive;     // Ustawienie stanu wyświetlacza zgodnie z menu PROG
+
+    if (progMenuActive)  // Jeśli menu PROG jest aktywne
+    {
+      progMenuIndex = 0;         // Ustaw początkowy indeks zaznaczenia w menu
+      displayProgMenu();         // Wyświetl menu PROG
+    }
+    else
+    {
+      displayRadio();            // Jeśli menu PROG zostało wyłączone, powrót do ekranu radia
+    }
+  }
+
+  // Jeśli menu PROG jest aktywne, obsługa nawigacji i zmiany ustawień
+  if (progMenuActive)
+  {
+    displayActive = true;           // Wymuszenie aktywnego ekranu
+    displayStartTime = millis();    // Reset licznika czasu bezczynności dla menu PROG
+
+    // Nawigacja w górę
+    if (IRupArrow)
+    {
+      IRupArrow = false;         // Zerowanie flagi
+      progMenuIndex--;           // Przesunięcie indeksu w górę
+      if (progMenuIndex < 0) progMenuIndex = 2; // Zawijanie do końca menu
+      displayProgMenu();         // Odśwież menu na ekranie
+    }
+
+    // Nawigacja w dół
+    if (IRdownArrow)
+    {
+      IRdownArrow = false;       // Zerowanie flagi
+      progMenuIndex++;           // Przesunięcie indeksu w dół
+      if (progMenuIndex > 2) progMenuIndex = 0; // Zawijanie do początku menu
+      displayProgMenu();         // Odśwież menu na ekranie
+    }
+
+    // Zatwierdzenie opcji przyciskiem OK
+    if (IRokButton)
+    {
+      IRokButton = false;        // Zerowanie flagi
+
+      switch (progMenuIndex)
+      {
+        case 0:                 // Kalendarz
+          cfgCalendar = !cfgCalendar;  // Toggle włącz/wyłącz
+          Serial.println(cfgCalendar ? "Kalendarz ON" : "Kalendarz OFF");
+          break;
+
+        case 1:                 // Pogoda
+          cfgWeather = !cfgWeather;    // Toggle włącz/wyłącz
+          Serial.println(cfgWeather ? "Pogoda ON" : "Pogoda OFF");
+          break;
+
+        case 2:                 // RSS
+          cfgRSS = !cfgRSS;            // Toggle włącz/wyłącz
+          Serial.println(cfgRSS ? "RSS ON" : "RSS OFF");
+          break;
+      }
+
+      displayProgMenu();           // Odśwież menu po zmianie ustawienia
+      saveSettingsToSD();          // Zapis aktualnych ustawień na kartę SD
+    }
+
+    return; // Blokujemy dalsze akcje pętli loop, dopóki menu PROG jest aktywne
+  }
+
 
   if (IRrightArrow == true)  // Prawy przycisk kierunkowy w pilocie
   {
