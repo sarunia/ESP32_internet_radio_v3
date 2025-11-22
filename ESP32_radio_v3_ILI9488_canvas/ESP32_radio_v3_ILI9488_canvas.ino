@@ -198,10 +198,6 @@ bool progMenuActive = false;      // Czy menu PROG jest obecnie aktywne
 int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
 
 // Stan funkcji
-bool calendarEnabled = true;
-bool weatherEnabled = true;
-bool rssEnabled = true;
-
 bool cfgCalendar = true;
 bool cfgWeather  = true;
 bool cfgRSS      = true;
@@ -3555,7 +3551,7 @@ void loop()
   if (updateClockFlag == true)
   {
     updateClockFlag = false;                   // Reset flagi
-    if (RSSactive == false)                    // Jeśli RSS nie jest wyświetlany
+    if ((RSSactive == false) && (progMenuActive == false))  // Jeśli RSS nie jest wyświetlany i menu USTAWIENIA nie jest aktywne
     {
       drawClock();                            // Rysuj aktualny czas na ekranie
     }
@@ -3583,9 +3579,6 @@ void loop()
   // Jeśli menu PROG jest aktywne, obsługa nawigacji i zmiany ustawień
   if (progMenuActive)
   {
-    displayActive = true;           // Wymuszenie aktywnego ekranu
-    displayStartTime = millis();    // Reset licznika czasu bezczynności dla menu PROG
-
     // Nawigacja w górę
     if (IRupArrow)
     {
