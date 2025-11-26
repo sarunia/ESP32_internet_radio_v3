@@ -89,7 +89,7 @@ extern String inputBuffer;
 
 extern unsigned long trackStartMillis;
 extern unsigned long displayStartTime;
-extern const unsigned long DISPLAY_TIMEOUT;
+extern unsigned long DISPLAY_TIMEOUT;
 
 enum MenuOption
 {
