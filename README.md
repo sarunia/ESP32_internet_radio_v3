@@ -177,10 +177,11 @@ Poniżej znajduje się przykładowy pilot używany podczas tworzenia projektu:
 | **STOP** | Zatrzymanie odtwarzania i przejście do listy stacji |
 | **PROG** | Włączenie i zamknięcie Menu dla aktywacji pogodynki, kartki z kalendarza, wiadomości z kanału RSS |
 | **MEMORY** | Włączenie i zatrzymanie nagrywania stacji radiowych do pliku mp3 na kartę SD |
+
+---
 Poniżej przedstawiono widok urządzenia w trybie radia internetowego:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/20250913_225635.jpg" width="380"> </p>
----
 
 ### 💾 Tryb: Odtwarzacz plików
 
