@@ -112,9 +112,9 @@ Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odb
 #define rcCmdPauseResume  0x0012   // Przycisk Play / Pause
 #define rcCmdFolderList   0x004E   // Przycisk GOTO - wyświetlenie listy folderów z zaznaczeniem aktualnego folderu
 #define rcCmdStop         0x0010   // Przycisk STOP
-#define rcCmdProg         0x000F   // Przycisk PROG
-#define rcCmdMemory       0x001F   // Przycisk MEMORY
-#define rcCmdRandom       0x001A   // Przycisk RANDOM
+#define rcCmdProg         0x000F   // Przycisk PROG - włącza i zamyka Menu wyboru ustawień do wyświetlania danych dodatkowych w trybie radia
+#define rcCmdMemory       0x001F   // Przycisk MEMORY - włącza i zatrzymuje nagrywanie stacji radiowej do pliku mp3 na karcie SD
+#define rcCmdRandom       0x001A   // Przycisk RANDOM - włącza i wyłącza tryb losowy podczas odtwarzania plikow z folderu
 ```
 Przypisanie adresu i komendy dla każdego przycisku polega na sklejeniu 2 bajtów np. odczytany przycisk z serial terminala"
 `ADR:0 CMD:4B`
@@ -172,6 +172,8 @@ Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
 | **VOL+ / VOL-** | Zmiana głośności |
 | **SOURCE** | Przejście do wyboru źródła audio |
 | **STOP** | Zatrzymanie odtwarzania i przejście do listy stacji |
+| **PROG** | Włączenie i zamknięcie Menu dla aktywacji pogodynki, kartki z kalendarza, wiadomości z kanału RSS |
+| **MEMORY** | Włączenie i zatrzymanie nagrywania stacji radiowych do pliku mp3 na kartę SD |
 
 ---
 
