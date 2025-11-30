@@ -181,7 +181,11 @@ Poniżej znajduje się przykładowy pilot używany podczas tworzenia projektu:
 ---
 Poniżej przedstawiono widok urządzenia w trybie radia internetowego:
 
-<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/20250913_225635.jpg" width="380"> </p>
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/radio_mode.jpg" width="380"> </p>
+
+Poniżej widok przewijanej listy stacji:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/stations_list.jpg" width="380"> </p>
 
 ### 💾 Tryb: Odtwarzacz plików
 
