@@ -197,6 +197,9 @@ Poniżej przedstawiono widok urządzenia w trybie radia internetowego:
 | **STOP** | Zatrzymanie odtwarzania i przejście do listy folderów |
 
 ---
+Poniżej widok urządzenia podczas pracy w trybie odtwarzacza plików:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/20251004_190120.jpg" width="380"> </p>
 
 ## 💾 Struktura karty SD
 ```cpp
