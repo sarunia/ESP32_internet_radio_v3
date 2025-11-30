@@ -199,7 +199,15 @@ Poniżej przedstawiono widok urządzenia w trybie radia internetowego:
 ---
 Poniżej widok urządzenia podczas pracy w trybie odtwarzacza plików:
 
-<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/20251004_190120.jpg" width="380"> </p>
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/player_mode.jpg" width="380"> </p>
+
+Tak prezentuje się lista plików na ekranie urządzenia:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/files_list.jpg" width="380"> </p>
+
+Tak wygląda ekran listy folderów:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/folder_list.jpg" width="380"> </p>
 
 ## 💾 Struktura karty SD
 ```cpp
