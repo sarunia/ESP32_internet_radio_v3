@@ -122,6 +122,9 @@ trzeba skleić do postaci:
 `0x004B`
 Projekt obsługuje **pilot NEC 38 kHz**.  
 Każdy przycisk ma przypisaną funkcję w zależności od trybu pracy.
+Poniżej znajduje się przykładowy pilot używany podczas tworzenia projektu:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/20251026_164114.jpg" width="300"> </p>
 
 ---
 
