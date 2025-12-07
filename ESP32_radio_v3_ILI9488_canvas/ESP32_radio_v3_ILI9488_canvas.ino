@@ -77,6 +77,8 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Konwersja z 8-bitowego RGB na 16-bit RGB565
 #define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
+#define MAX_LOG_ENTRIES 10   // Maksymalna liczba wpisów w logu, po osiągnięciu tej liczby najstarszy wpis zostanie usunięty
+
 // Definicje kolorów
 #define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
 #define COLOR_GREEN       RGB565(0, 255, 0)      // Zielony
@@ -187,10 +189,15 @@ File recordingFile;                       // Obiekt File reprezentujący plik na
 bool isRecording = false;                 // Flaga mówiąca, czy nagrywanie jest aktywne (true – nagrywa, false – zatrzymane)
 unsigned long lastRecordRead = 0;         // Czas w ms ostatniego odczytu danych z serwera, używany do wykrywania timeoutu
 String stationUrl = "";                    // Adres URL strumienia radiowego do nagrywania, np. "http://s0.radiohost.pl:8018/stream"
-#define RECORD_BUFFER_SIZE 8192            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
+#define RECORD_BUFFER_SIZE 65536            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
 uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania danych odebranych z serwera przed zapisaniem na SD
 bool headersRead = false;
 bool isChunked = false;
+
+File logFile;                  // Obiekt pliku SD do zapisu/odczytu logów
+String lastLoggedInfo = "";    // Zapamiętuje ostatni zalogowany utwór, by nie duplikować wpisów
+const char* logFileName = "/zdarzenia.txt";  // Nazwa pliku logu na karcie SD
+
 
 
 // --- Menu PROG ---
@@ -2196,9 +2203,20 @@ void displayRadio()
       canvas.print("REC");              // Wyświetlenie znacznika nagrywania
     }
 
+
+
     // Wysyłanie całego canvasu na ekran TFT
     //tft_pushCanvas(canvas);
   }
+
+
+  // Logowanie zdarzeń
+  if (stationInfo.length() > 0 && stationInfo != lastLoggedInfo)
+  {
+      logTrack(stationName, stationInfo);
+      lastLoggedInfo = stationInfo;
+  }
+
 }
 
 
@@ -3276,7 +3294,7 @@ void handleRecording()
   }
 
   // Timeout
-  if (millis() - lastRecordRead > 5000)
+  if (millis() - lastRecordRead > 20000)
   {
     Serial.println("[TIMEOUT] Brak danych → zatrzymuję nagrywanie");
     stopRecording();
@@ -3421,6 +3439,102 @@ void loadSettingsFromSD()
 }
 
 
+// ----------------------------------------------------------------------------
+// Funkcja inicjalizująca plik logu na karcie SD
+// Tworzy plik, jeśli nie istnieje, i zapisuje nagłówek logu
+// ----------------------------------------------------------------------------
+void initLogFile()
+{
+  if (!SD.begin())   // Inicjalizacja karty SD
+  {
+    Serial.println("Błąd inicjalizacji SD!");  // Komunikat błędu jeśli SD nie działa
+    return;                                    // Zakończenie funkcji w przypadku błędu
+  }
+
+  if (!SD.exists(logFileName))  // Sprawdzenie, czy plik logu już istnieje
+  {
+    logFile = SD.open(logFileName, FILE_WRITE); // Utworzenie nowego pliku do zapisu
+    if (logFile)
+    {
+      logFile.println("=== Log odtwarzanych stacji ==="); // Nagłówek logu
+      logFile.println("Stacja: " + stationName);         // Nazwa aktualnej stacji
+      logFile.close();                                   // Zamknięcie pliku po zapisaniu nagłówka
+    }
+    else
+    {
+      Serial.println("Nie można utworzyć pliku logu!"); // Komunikat błędu jeśli nie udało się utworzyć pliku
+    }
+  }
+}
+
+
+// ----------------------------------------------------------------------------
+// Funkcja logująca aktualnie odtwarzany utwór do pliku na karcie SD
+// Zachowuje maksymalnie MAX_LOG_ENTRIES wpisów, starsze są usuwane
+// ----------------------------------------------------------------------------
+void logTrack(String station, String track)
+{
+  // Tablica do przechowywania wpisów logu
+  String entries[MAX_LOG_ENTRIES];  // Tablica na wpisy logu
+  int count = 0;                     // Licznik aktualnej liczby wpisów
+
+  // Wczytanie istniejącego pliku logu
+  File logFile = SD.open(logFileName, FILE_READ);  // Otwórz plik do odczytu
+  if (logFile)
+  {
+    while (logFile.available() && count < MAX_LOG_ENTRIES)  // Pętla po wszystkich liniach lub do MAX_LOG_ENTRIES
+    {
+      entries[count++] = logFile.readStringUntil('\n');    // Wczytaj linię i zapisz do tablicy
+    }
+    logFile.close();  // Zamknięcie pliku po odczycie
+  }
+
+  // Przygotowanie nowego wpisu z datą i godziną
+  struct tm timeinfo;                                // Struktura na czas
+  char timeString[20] = "00-00-0000 00:00:00";      // Bufor na sformatowaną datę
+  if (getLocalTime(&timeinfo))                       // Pobranie lokalnego czasu
+  {
+    snprintf(timeString, sizeof(timeString), "%02d-%02d-%04d %02d:%02d:%02d",
+             timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900, // dzień-miesiąc-rok
+             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);           // godzina:minuta:sekunda
+  }
+  String newEntry = String(timeString) + " | " + station + " | " + track;    // Stwórz nowy wpis
+
+  // Dodanie nowego wpisu do tablicy
+  if (count < MAX_LOG_ENTRIES)
+  {
+    entries[count++] = newEntry;  // Jeśli nie osiągnięto limitu, dodaj nowy wpis
+  }
+  else
+  {
+    // Przesunięcie starszych wpisów w lewo, nadpisanie najstarszego
+    for (int i = 1; i < MAX_LOG_ENTRIES; i++)
+    {
+      entries[i - 1] = entries[i];           // Przesunięcie wpisów
+    }
+    entries[MAX_LOG_ENTRIES - 1] = newEntry;  // Dodanie nowego wpisu na koniec
+  }
+
+  // Zapis całego pliku logu od nowa
+  logFile = SD.open(logFileName, FILE_WRITE);  // Otwórz plik do zapisu, nadpisując zawartość
+  if (logFile) 
+  {
+    for (int i = 0; i < count; i++)
+    {
+      logFile.println(entries[i]);             // Zapis każdej linii do pliku
+      Serial.println("LOG: " + entries[i]);   // Wypisanie wpisu na Serial dla debugowania
+    }
+    logFile.close();                           // Zamknięcie pliku po zapisie
+  }
+  else
+  {
+    Serial.println("Nie można otworzyć pliku logu do zapisu!"); // Komunikat błędu jeśli zapis nie powiódł się
+  }
+}
+
+
+
+
 /*-------------------------------------------------------GŁÓWNY SETUP PROGRAMU----------------------------------------------------------*/
 
 
@@ -3467,6 +3581,9 @@ void setup()
   // Inicjalizacja karty SD wraz z pierwszyn utworzeniem wymaganych plików w głównym katalogu karty, jeśli pliki już istnieją to funkcja sprawdza ich obecność, potem ładuje ustawienia użytkownika
   SDinit();
   loadSettingsFromSD();
+
+  initLogFile(); // do sprawdzenia czy jest to potrzebne
+
 
   // Wyczyść cały ekran
   canvas.fillScreen(COLOR_BLACK);
@@ -3537,7 +3654,7 @@ void loop()
   processIRCode();            // Funkcja przypisująca odpowiednie flagi do użytych przycisków z pilota IR
   volumeSetFromRemote();      // Obsługa regulacji głośności z pilota IR
   handleRecording();          // Obsługa nagrywania strumienia MP3 na SD
-  vTaskDelay(2);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
+  vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
   // Wyświetlanie informacji dodatkowych, jeśli ekran nieaktywny i nie nagrywamy
   if (!displayActive && !stationsList && !isRecording)
