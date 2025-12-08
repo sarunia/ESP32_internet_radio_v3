@@ -180,6 +180,7 @@ bool IRstopButton = false;        // Flaga określająca użycie zdalnego sterow
 bool IRprogButton = false;        // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk PROG
 bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk MEMORY
 bool IRrandomButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk RANDOM
+bool IRsearchButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk SEARCH
 
 // Zmienne do wykorzystania podczas nagrywania strumienia wprost z http bez dekodowania
 WiFiClient recClient;                     // Obiekt WiFiClient do połączenia HTTP z serwerem radia, używany do nagrywania
@@ -198,8 +199,6 @@ File logFile;                  // Obiekt pliku SD do zapisu/odczytu logów
 String lastLoggedInfo = "";    // Zapamiętuje ostatni zalogowany utwór, by nie duplikować wpisów
 const char* logFileName = "/zdarzenia.txt";  // Nazwa pliku logu na karcie SD
 
-
-
 // --- Menu PROG ---
 bool progMenuActive = false;      // Czy menu PROG jest obecnie aktywne
 int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
@@ -208,6 +207,7 @@ int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
 bool cfgCalendar = true;
 bool cfgWeather  = true;
 bool cfgRSS      = true;
+bool cfgLogs     = true;
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -337,6 +337,7 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdProg         0x000F   // Przycisk PROG
 #define rcCmdMemory       0x001F   // Przycisk MEMORY
 #define rcCmdRandom       0x001A   // Przycisk RANDOM
+#define rcCmdSearch       0x0043   // Przycisk Search
 
 String inputBuffer = "";       // Bufor na wciśnięte cyfry
 unsigned long inputStartTime;  // Czas rozpoczęcia wpisywania numeru
@@ -508,6 +509,7 @@ void processIRCode()
     else if (ir_code == rcCmdProg)       IRprogButton   = true;
     else if (ir_code == rcCmdMemory)     IRmemoryButton   = true;
     else if (ir_code == rcCmdRandom)     IRrandomButton   = true;
+    else if (ir_code == rcCmdSearch)     IRsearchButton   = true;
 
     // --- Przyciski numeryczne ---
     else if (ir_code == rcCmdKey0) handleDigitInput(0);
@@ -2131,8 +2133,6 @@ void displayStations()
 
 
 
-
-
 // Funkcja do wyświetlania aktualnej stacji radiowej
 void displayRadio()
 {
@@ -2203,18 +2203,14 @@ void displayRadio()
       canvas.print("REC");              // Wyświetlenie znacznika nagrywania
     }
 
-
-
-    // Wysyłanie całego canvasu na ekran TFT
-    //tft_pushCanvas(canvas);
   }
 
 
   // Logowanie zdarzeń
-  if (stationInfo.length() > 0 && stationInfo != lastLoggedInfo)
+  if ((stationInfo.length() > 0 && stationInfo != lastLoggedInfo) && (cfgLogs))   // jeśli jest jakaś treść oraz różni się od poprzedniej i logowanie jest włączone
   {
-      logTrack(stationName, stationInfo);
-      lastLoggedInfo = stationInfo;
+      logTrack(stationName, stationInfo);   // dopisz wpis do pliku logu: data | stacja | utwór
+      lastLoggedInfo = stationInfo;         // zapamiętaj ostatni wpis, aby nie powtarzać
   }
 
 }
@@ -3340,14 +3336,15 @@ void displayProgMenu()
 
   canvas.setFont(&FreeSans12pt7b);                   // Zmiana na mniejszą czcionkę dla opcji
 
-  const char* options[3] =
+  const char* options[4] =
   {
     cfgCalendar ? "Kalendarz: ON" : "Kalendarz: OFF",         // Opcja 1: kalendarz
     cfgWeather  ? "Pogoda: ON"    : "Pogoda: OFF",             // Opcja 2: pogoda
-    cfgRSS      ? "Informacje RSS: ON" : "Informacje RSS: OFF" // Opcja 3: RSS
+    cfgRSS      ? "Informacje RSS: ON" : "Informacje RSS: OFF", // Opcja 3: RSS
+    cfgLogs     ? "Log granych stacji: ON" : "Log granych stacji: OFF" // Opcja 4: Logs
   };
 
-  for (int i = 0; i < 3; i++)                                   // Pętla przez 3 pozycje menu
+  for (int i = 0; i < 4; i++)                                  // Pętla przez 4 pozycje menu
   {
     if (i == progMenuIndex)
       canvas.setTextColor(COLOR_YELLOW);                       // Podświetlenie aktywnej opcji
@@ -3384,6 +3381,9 @@ void saveSettingsToSD()
 
   f.print("rss=");                                    // Zapis ustawienia RSS
   f.println(cfgRSS ? 1 : 0);                          // Zapisz 1 lub 0
+
+  f.print("logs=");                                   // Zapis ustawienia Logs
+  f.println(cfgLogs ? 1 : 0);                         // Zapisz 1 lub 0
 
   f.close();                                          // Zamknij plik
   Serial.println("Ustawienia zapisane do settings.txt"); // Potwierdzenie
@@ -3428,6 +3428,10 @@ void loadSettingsFromSD()
     {
         cfgRSS = (line.substring(4).toInt() == 1);      // Zamień 1/0 na true/false
     }
+    else if (line.startsWith("logs="))               // Jeśli linia dotyczy Logs
+    {
+        cfgLogs = (line.substring(5).toInt() == 1);      // Zamień 1/0 na true/false
+    }
   }
 
   f.close();                                          // Zamknij plik
@@ -3436,6 +3440,7 @@ void loadSettingsFromSD()
   Serial.printf("  calendar: %d\n", cfgCalendar);    // Status kalendarza
   Serial.printf("  weather : %d\n", cfgWeather);     // Status pogody
   Serial.printf("  rss     : %d\n", cfgRSS);         // Status RSS
+  Serial.printf("  logs    : %d\n", cfgLogs);        // Status Logs
 }
 
 
@@ -3701,7 +3706,7 @@ void loop()
     {
       IRupArrow = false;         // Zerowanie flagi
       progMenuIndex--;           // Przesunięcie indeksu w górę
-      if (progMenuIndex < 0) progMenuIndex = 2; // Zawijanie do końca menu
+      if (progMenuIndex < 0) progMenuIndex = 3; // Zawijanie do końca menu
       displayProgMenu();         // Odśwież menu na ekranie
     }
 
@@ -3710,7 +3715,7 @@ void loop()
     {
       IRdownArrow = false;       // Zerowanie flagi
       progMenuIndex++;           // Przesunięcie indeksu w dół
-      if (progMenuIndex > 2) progMenuIndex = 0; // Zawijanie do początku menu
+      if (progMenuIndex > 3) progMenuIndex = 0; // Zawijanie do początku menu
       displayProgMenu();         // Odśwież menu na ekranie
     }
 
@@ -3734,6 +3739,10 @@ void loop()
         case 2:                 // RSS
           cfgRSS = !cfgRSS;            // Toggle włącz/wyłącz
           Serial.println(cfgRSS ? "RSS ON" : "RSS OFF");
+          break;
+        case 3:                 // Logowanie zdarzeń
+          cfgLogs = !cfgLogs;            // Toggle włącz/wyłącz
+          Serial.println(cfgLogs ? "Rejestr granych ON" : "Rejestr granych OFF");
           break;
       }
 
