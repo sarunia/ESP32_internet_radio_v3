@@ -203,6 +203,25 @@ const char* logFileName = "/zdarzenia.txt";  // Nazwa pliku logu na karcie SD
 bool progMenuActive = false;      // Czy menu PROG jest obecnie aktywne
 int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
 
+// --- LOG granych stacji i utworów ---
+bool logViewActive = false;
+int logViewIndex = 0;
+String logLines[MAX_LOG_ENTRIES];
+int logCount = 0;
+
+// struktura wejściowa
+struct LogEntry {
+  String datetime;
+  String station;
+  String track;
+};
+
+// maks wpisów
+LogEntry logList[MAX_LOG_ENTRIES];
+
+
+
+
 // Stan funkcji
 bool cfgCalendar = true;
 bool cfgWeather  = true;
@@ -3538,6 +3557,92 @@ void logTrack(String station, String track)
 }
 
 
+// ----------------------------------------------------------------------------
+// Funkcja wczytująca zawartość pliku logu na kartę SD do tablicy logLines[]
+// Zlicza liczbę wpisów w logu (logCount) i ustawia indeks do przeglądania
+// ----------------------------------------------------------------------------
+void loadLogFile()
+{
+  logCount = 0;  // Resetujemy licznik wpisów logu
+
+  // Otwieramy plik logu do odczytu
+  File logFile = SD.open(logFileName, FILE_READ);  
+  if (!logFile) return;  // Jeśli nie uda się otworzyć pliku, wychodzimy z funkcji
+
+  // Pętla odczytu każdej linii pliku, aż do końca lub osiągnięcia MAX_LOG_ENTRIES
+  while (logFile.available() && logCount < MAX_LOG_ENTRIES)
+  {
+    // Wczytanie jednej linii (do znaku '\n') i zapisanie w tablicy logLines[]
+    logLines[logCount++] = logFile.readStringUntil('\n');
+  }
+
+  logFile.close();  // Zamykamy plik po odczycie
+
+  // Jeśli w logu są wpisy, ustawiamy indeks do przeglądania na ostatni wpis (najświeższy)
+  if (logCount > 0)
+    logViewIndex = logCount - 1;
+}
+
+
+// --------------------------------------------------------------------------
+// Wyświetlanie logów granych stacji
+// logViewIndex pokazuje który wpis (0..logCount-1)
+// --------------------------------------------------------------------------
+void displayLogEntry()
+{
+  if (logCount == 0)
+  {
+    canvas.fillScreen(COLOR_BLACK);
+    canvas.setCursor(0,30);
+    canvas.setTextColor(COLOR_YELLOW);
+    canvas.setFont(&FreeSans12pt7b);
+    canvas.print("Brak logow...");
+    tft_pushCanvas(canvas);
+    return;
+  }
+
+  // Pobranie bieżącego wpisu logu z tablicy logLines[]
+  String entry = logLines[logViewIndex];
+
+  // Szukanie separatorów "|" w wierszu logu
+  int p1 = entry.indexOf("|");              // Pierwszy separator – oddziela datę od stacji
+  int p2 = entry.indexOf("|", p1+1);        // Drugi separator – oddziela stację od stream title
+
+  // Wyciągamy poszczególne fragmenty wpisu
+  String dt   = entry.substring(0, p1);     // 1) Data i godzina
+  String st   = entry.substring(p1+1, p2);  // 2) Nazwa stacji wraz z Bank X Stacja Y
+  String info = entry.substring(p2+1);      // 3) Stream title
+
+  canvas.fillScreen(COLOR_BLACK);           
+  canvas.setFont(&FreeSans12pt7b);
+
+  // 1 linia – historia logu z informacją o pozycji (np. 3/10)
+  canvas.setTextColor(COLOR_CYAN);          
+  canvas.setCursor(80,25);                   
+  canvas.print("Historia granych stacji (");  
+  canvas.print(logViewIndex+1);             // Aktualna pozycja w logu
+  canvas.print("/");                         
+  canvas.print(logCount);                   // Łączna liczba wpisów w logu
+  canvas.print(")");
+
+  // 2 linia – data i godzina odtworzenia utworu
+  canvas.setTextColor(COLOR_YELLOW);        
+  canvas.setCursor(0,70);                    
+  canvas.print(dt);
+
+  // 3 linia – nazwa stacji wraz z Bank X Stacja Y
+  canvas.setTextColor(COLOR_WHITE);         
+  canvas.setCursor(0,110);                   
+  canvas.println(st);
+
+  // 4 linia – stream title
+  canvas.setTextColor(COLOR_GREEN);         
+  canvas.setCursor(0,150);                   
+  drawWrappedCanvasText(info.c_str(), 0, 150, 480, 30); // Wyświetlenie stream title z zawijaniem
+
+  tft_pushCanvas(canvas);
+}
+
 
 
 /*-------------------------------------------------------GŁÓWNY SETUP PROGRAMU----------------------------------------------------------*/
@@ -3661,6 +3766,24 @@ void loop()
   handleRecording();          // Obsługa nagrywania strumienia MP3 na SD
   vTaskDelay(1);              // Krótkie opóźnienie, oddaje czas procesora innym zadaniom
 
+  // Wyświetlenie logów granych stacji radiowych od ostatniego wpisu
+  if (IRsearchButton)
+  {
+    IRsearchButton = false;
+    logViewActive = !logViewActive;
+
+    if (logViewActive)
+    {
+      loadLogFile();
+      displayLogEntry();
+      displayActive = true;
+    }
+    else
+    {
+      displayRadio();
+    }
+  }
+
   // Wyświetlanie informacji dodatkowych, jeśli ekran nieaktywny i nie nagrywamy
   if (!displayActive && !stationsList && !isRecording)
   {
@@ -3677,6 +3800,30 @@ void loop()
     {
       drawClock();                            // Rysuj aktualny czas na ekranie
     }
+  }
+
+  // Obsługa przewijania logu, jeśli tryb podglądu logu jest aktywny
+  if (logViewActive)
+  {
+    // Przewijanie w górę (poprzedni wpis)
+    if (IRupArrow)
+    {
+      IRupArrow = false;        // Zerowanie flagi przycisku
+      if (logViewIndex > 0)     // Sprawdzenie, czy nie jesteśmy na pierwszym wpisie
+          logViewIndex--;       // Przejście do poprzedniego wpisu
+      displayLogEntry();        // Odświeżenie ekranu z nowym wpisem logu
+    }
+
+    // Przewijanie w dół (następny wpis)
+    if (IRdownArrow)
+    {
+      IRdownArrow = false;      // Zerowanie flagi przycisku
+      if (logViewIndex < logCount - 1) // Sprawdzenie, czy nie jesteśmy na ostatnim wpisie
+          logViewIndex++;       // Przejście do następnego wpisu
+      displayLogEntry();        // Odświeżenie ekranu z nowym wpisem logu
+    }
+
+    return;   // Blokuje wykonywanie dalszych akcji w pętli loop() podczas przeglądania logu
   }
 
   // ------- MENU PROG (funkcje dodatkowe) ------- 
