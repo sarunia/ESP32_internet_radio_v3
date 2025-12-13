@@ -226,6 +226,9 @@ Przykładowy ekran z zawartością informacji z kanału RSS Polsat News:
   <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/rss%20info.jpg" width="380">
 </p>
 
+Widok ekranu podczas przeglądania historii granych stacji radiowych:
+
+<p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/log%20stacji%202.jpg" width="380"> </p>
 
 
 ## 💾 Struktura karty SD
