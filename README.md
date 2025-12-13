@@ -206,7 +206,7 @@ Ekran w trybie odtwarzacza plików:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/player_mode.jpg" width="380"> </p>
 
-Tak prezentuje się lista plików na ekranie urządzenia:
+Ekran listy plików:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/files_list.jpg" width="380"> </p>
 
