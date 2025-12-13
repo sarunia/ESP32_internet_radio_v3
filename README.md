@@ -115,6 +115,7 @@ Projekt nie wymaga żadnych pokręteł ani przycisków — **pełna obsługa odb
 #define rcCmdProg         0x000F   // Przycisk PROG - włącza i zamyka Menu wyboru ustawień do wyświetlania danych dodatkowych w trybie radia
 #define rcCmdMemory       0x001F   // Przycisk MEMORY - włącza i zatrzymuje nagrywanie stacji radiowej do pliku mp3 na karcie SD
 #define rcCmdRandom       0x001A   // Przycisk RANDOM - włącza i wyłącza tryb losowy podczas odtwarzania plikow z folderu
+#define rcCmdSearch       0x0043   // Przycisk SEARCH - włącza i wyłącza ekran przeglądu historii granych stacji radiowych
 ```
 Przypisanie adresu i komendy dla każdego przycisku polega na sklejeniu 2 bajtów np. odczytany przycisk z serial terminala"
 `ADR:0 CMD:4B`
@@ -179,11 +180,11 @@ Poniżej znajduje się przykładowy pilot używany podczas tworzenia projektu:
 | **MEMORY** | Włączenie i zatrzymanie nagrywania stacji radiowych do pliku mp3 na kartę SD |
 
 ---
-Poniżej przedstawiono widok urządzenia w trybie radia internetowego:
+Widok ekranu w trybie radia internetowego:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/radio_mode.jpg" width="380"> </p>
 
-Poniżej widok przewijanej listy stacji:
+Widok przewijanej listy stacji:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/stations_list.jpg" width="380"> </p>
 
@@ -201,7 +202,7 @@ Poniżej widok przewijanej listy stacji:
 | **STOP** | Zatrzymanie odtwarzania i przejście do listy folderów |
 
 ---
-Poniżej widok urządzenia podczas pracy w trybie odtwarzacza plików:
+Ekran w trybie odtwarzacza plików:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/player_mode.jpg" width="380"> </p>
 
@@ -209,7 +210,7 @@ Tak prezentuje się lista plików na ekranie urządzenia:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/files_list.jpg" width="380"> </p>
 
-Tak wygląda ekran listy folderów:
+Ekran listy folderów:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/folder_list.jpg" width="380"> </p>
 
