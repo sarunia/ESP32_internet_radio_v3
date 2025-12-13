@@ -220,6 +220,13 @@ Ekran menu ustawień dla aktywacji poszczególnych funkcji (pogodynka, kartka z 
   <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/menu%20ustawienia.jpg" width="380">
 </p>
 
+Przykładowy ekran z zawartością informacji z kanału RSS Polsat News:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/rss%20info.jpg" width="380">
+</p>
+
+
 
 ## 💾 Struktura karty SD
 ```cpp
