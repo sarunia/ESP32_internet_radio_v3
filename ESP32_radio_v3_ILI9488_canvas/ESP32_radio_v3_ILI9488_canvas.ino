@@ -77,7 +77,7 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Konwersja z 8-bitowego RGB na 16-bit RGB565
 #define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
-#define MAX_LOG_ENTRIES 10   // Maksymalna liczba wpisów w logu, po osiągnięciu tej liczby najstarszy wpis zostanie usunięty
+#define MAX_LOG_ENTRIES 20   // Maksymalna liczba wpisów w logu, po osiągnięciu tej liczby najstarszy wpis zostanie usunięty
 
 // Definicje kolorów
 #define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
@@ -182,51 +182,62 @@ bool IRmemoryButton = false;      // Flaga określająca użycie zdalnego sterow
 bool IRrandomButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk RANDOM
 bool IRsearchButton = false;      // Flaga określająca użycie zdalnego sterowania z pilota IR - przycisk SEARCH
 
-// Zmienne do wykorzystania podczas nagrywania strumienia wprost z http bez dekodowania
-WiFiClient recClient;                     // Obiekt WiFiClient do połączenia HTTP z serwerem radia, używany do nagrywania
-WiFiClientSecure recSecure;               // dla HTTPS
-bool useSSL = false;                      // flaga – jaki klient jest użyty
-File recordingFile;                       // Obiekt File reprezentujący plik na karcie SD do którego zapisujemy strumień MP3
-bool isRecording = false;                 // Flaga mówiąca, czy nagrywanie jest aktywne (true – nagrywa, false – zatrzymane)
-unsigned long lastRecordRead = 0;         // Czas w ms ostatniego odczytu danych z serwera, używany do wykrywania timeoutu
-String stationUrl = "";                    // Adres URL strumienia radiowego do nagrywania, np. "http://s0.radiohost.pl:8018/stream"
-#define RECORD_BUFFER_SIZE 65536            // Rozmiar bufora używanego do odczytu danych z serwera w porcjach
-uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy do przechowywania danych odebranych z serwera przed zapisaniem na SD
-bool headersRead = false;
-bool isChunked = false;
 
-File logFile;                  // Obiekt pliku SD do zapisu/odczytu logów
-String lastLoggedInfo = "";    // Zapamiętuje ostatni zalogowany utwór, by nie duplikować wpisów
-const char* logFileName = "/zdarzenia.txt";  // Nazwa pliku logu na karcie SD
+// ZMIENNE DO NAGRYWANIA STRUMIENIA AUDIO (HTTP / HTTPS, bez dekodowania)
+WiFiClient        recClient;               // Klient TCP dla strumieni HTTP (bez SSL)
+WiFiClientSecure recSecure;               // Klient TCP dla strumieni HTTPS (SSL)
+bool useSSL = false;                      // Flaga wyboru klienta (false = HTTP, true = HTTPS)
 
-// --- Menu PROG ---
-bool progMenuActive = false;      // Czy menu PROG jest obecnie aktywne
-int progMenuIndex = 0;            // Aktualnie wybrana opcja menu
+File recordingFile;                       // Plik MP3 na karcie SD, do którego zapisywany jest strumień
+bool isRecording = false;                 // Flaga stanu nagrywania (true = nagrywa, false = stop)
+unsigned long lastRecordRead = 0;         // Czas ostatniego odebrania danych (ms) – do obsługi timeoutu
 
-// --- LOG granych stacji i utworów ---
-bool logViewActive = false;
-int logViewIndex = 0;
-String logLines[MAX_LOG_ENTRIES];
-int logCount = 0;
+String stationUrl = "";                   // URL strumienia radiowego (np. http://radio.pl/stream)
 
-// struktura wejściowa
-struct LogEntry {
-  String datetime;
-  String station;
-  String track;
+#define RECORD_BUFFER_SIZE 65536           // Rozmiar bufora odczytu danych z sieci (64 KB)
+uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy danych przed zapisem na SD
+
+bool headersRead = false;                 // Czy nagłówki HTTP zostały już odczytane
+bool isChunked   = false;                 // Czy strumień używa transfer-encoding: chunked
+
+
+// LOG ZDARZEŃ (HISTORIA GRANYCH STACJI I UTWORÓW)
+File logFile;                             // Obiekt pliku logu na karcie SD
+String lastLoggedInfo = "";               // Ostatni zalogowany streamTitle (ochrona przed duplikacją)
+const char* logFileName = "/zdarzenia.txt"; // Nazwa pliku logu na karcie SD
+
+
+// MENU PROG (USTAWIENIA DODATKOWE)
+bool progMenuActive = false;              // Czy menu PROG jest aktualnie wyświetlane
+int  progMenuIndex  = 0;                  // Aktualnie zaznaczona pozycja menu PROG
+
+
+// PODGLĄD LOGU NA EKRANIE (PRZEWIJANIE STRZAŁKAMI)
+bool   logViewActive = false;             // Czy aktywny jest tryb przeglądania logu
+int    logViewIndex  = 0;                 // Indeks aktualnie wyświetlanego wpisu
+String logLines[MAX_LOG_ENTRIES];         // Bufor wpisów logu wczytanych z SD
+int    logCount = 0;                      // Liczba faktycznie wczytanych wpisów
+
+
+// STRUKTURA POJEDYNCZEGO WPISU LOGU
+struct LogEntry
+{
+  String datetime;                        // Data i godzina zdarzenia
+  String station;                         // Nazwa stacji + Bank + Nr stacji
+  String track;                           // StreamTitle / nazwa utworu
 };
 
-// maks wpisów
-LogEntry logList[MAX_LOG_ENTRIES];
+
+// TABLICA WPISÓW LOGU (OGRANICZONA DO MAX_LOG_ENTRIES)
+LogEntry logList[MAX_LOG_ENTRIES];         // Lista wpisów logu w pamięci RAM
 
 
-
-
-// Stan funkcji
-bool cfgCalendar = true;
-bool cfgWeather  = true;
-bool cfgRSS      = true;
-bool cfgLogs     = true;
+// STANY FUNKCJI DODATKOWYCH (WŁĄCZ / WYŁĄCZ)
+bool cfgCalendar = true;                  // Wyświetlanie kalendarza
+bool cfgWeather  = true;                  // Wyświetlanie pogody
+bool cfgRSS      = true;                  // Wyświetlanie kanałów RSS
+bool cfgLogs     = true;                  // Logowanie granych stacji i utworów
+bool cfgBanks    = true;                  // Wybór miedzy ładowaniem banków z karty / z github
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -1659,6 +1670,12 @@ void SDinit()
 // Funkcja do pobierania listy stacji radiowych z serwera i zapisania ich w wybranym banku na karcie SD
 void fetchStationsFromServer()
 {
+  if (!cfgBanks)
+  {
+    Serial.println("fetchStationsFromServer() zablokowane – cfgBanks OFF");
+    return;
+  }
+
   previous_bank_nr = bank_nr;
   
   // Utwórz obiekt klienta HTTP
@@ -1773,6 +1790,76 @@ void fetchStationsFromServer()
 
   // Zakończ połączenie HTTP
   http.end();
+}
+
+
+// --------------------------------------------------------------------------
+// Ładowanie stacji radiowych dla aktualnego banku
+// cfgBanks == true  -> pobieranie z GitHub + zapis na SD
+// cfgBanks == false -> odczyt WYŁĄCZNIE z karty SD
+// --------------------------------------------------------------------------
+void loadStationsForBank()
+{
+  if (cfgBanks)
+  {
+    Serial.println("CFG BANKS = ON → pobieram stacje z GitHub");
+    fetchStationsFromServer();        // aktualizacja + zapis na SD
+  }
+  else
+  {
+    Serial.println("CFG BANKS = OFF → czytam stacje z karty SD");
+    loadStationsFromSD();             // tylko lokalnie
+  }
+}
+
+
+// --------------------------------------------------------------------------
+// Wczytanie stacji radiowych z pliku banku zapisanego na karcie SD
+// Funkcja używana, gdy cfgBanks == false (czytanie lokalne, bez GitHuba)
+// --------------------------------------------------------------------------
+void loadStationsFromSD()
+{
+  stationsCount = 0;                                   // Zerowanie licznika stacji
+
+  // Budowa nazwy pliku banku, np. /bank01.txt
+  String fileNameWithBank =
+    String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
+
+  // Sprawdzenie czy plik banku istnieje na karcie SD
+  if (!SD.exists(fileNameWithBank))
+  {
+    Serial.println("Brak pliku banku na SD: " + fileNameWithBank); // Komunikat diagnostyczny
+    return;                                                       // Przerwij jeśli brak pliku
+  }
+
+  // Otwarcie pliku banku do odczytu
+  File bankFile = SD.open(fileNameWithBank, FILE_READ);
+  if (!bankFile)
+  {
+    Serial.println("Nie można otworzyć pliku banku: " + fileNameWithBank); // Błąd otwarcia
+    return;
+  }
+
+  Serial.println("Czytam stacje z: " + fileNameWithBank); // Informacja na Serial
+
+  // Czytanie pliku linia po linii
+  while (bankFile.available() && stationsCount < MAX_STATIONS)
+  {
+    String line = bankFile.readStringUntil('\n'); // Odczyt jednej linii (jednej stacji)
+    line.trim();                                  // Usunięcie spacji i znaków końca linii
+
+    // Jeśli linia nie jest pusta – zapisz stację
+    if (line.length() > 0)
+    {
+      sanitizeAndSaveStation(line.c_str());       // Normalizacja i zapis stacji do pamięci
+      stationsCount++;                            // Zwiększenie licznika stacji
+    }
+  }
+
+  bankFile.close();                               // Zamknięcie pliku po odczycie
+
+  Serial.print("Wczytano stacji: ");              // Podsumowanie
+  Serial.println(stationsCount);
 }
 
 
@@ -3355,22 +3442,23 @@ void displayProgMenu()
 
   canvas.setFont(&FreeSans12pt7b);                   // Zmiana na mniejszą czcionkę dla opcji
 
-  const char* options[4] =
+  const char* options[5] =
   {
     cfgCalendar ? "Kalendarz: ON" : "Kalendarz: OFF",         // Opcja 1: kalendarz
     cfgWeather  ? "Pogoda: ON"    : "Pogoda: OFF",             // Opcja 2: pogoda
     cfgRSS      ? "Informacje RSS: ON" : "Informacje RSS: OFF", // Opcja 3: RSS
-    cfgLogs     ? "Log granych stacji: ON" : "Log granych stacji: OFF" // Opcja 4: Logs
+    cfgLogs     ? "Log granych stacji: ON" : "Log granych stacji: OFF", // Opcja 4: Logs
+    cfgBanks    ? "Aktualizuj z Github: ON" : "Aktualizuj z Github: OFF" // Opcja 5: Pobieranie banków
   };
 
-  for (int i = 0; i < 4; i++)                                  // Pętla przez 4 pozycje menu
+  for (int i = 0; i < 5; i++)                                  // Pętla przez 5 pozycji menu
   {
     if (i == progMenuIndex)
       canvas.setTextColor(COLOR_YELLOW);                       // Podświetlenie aktywnej opcji
     else
       canvas.setTextColor(COLOR_WHITE);                        // Kolor pozostałych
 
-    canvas.setCursor(40, 80 + i * 60);                         // Pozycje pionowe kolejnych linii
+    canvas.setCursor(40, 80 + i * 50);                         // Pozycje pionowe kolejnych linii
     canvas.print(options[i]);                                  // Wyświetlenie tekstu opcji
   }
 
@@ -3403,6 +3491,9 @@ void saveSettingsToSD()
 
   f.print("logs=");                                   // Zapis ustawienia Logs
   f.println(cfgLogs ? 1 : 0);                         // Zapisz 1 lub 0
+
+  f.print("banks=");                                  // Zapis ustawienia banków
+  f.println(cfgBanks ? 1 : 0);                         // Zapisz 1 lub 0
 
   f.close();                                          // Zamknij plik
   Serial.println("Ustawienia zapisane do settings.txt"); // Potwierdzenie
@@ -3451,6 +3542,10 @@ void loadSettingsFromSD()
     {
         cfgLogs = (line.substring(5).toInt() == 1);      // Zamień 1/0 na true/false
     }
+    else if (line.startsWith("banks="))               // Jeśli linia dotyczy banków
+    {
+        cfgBanks = (line.substring(6).toInt() == 1);      // Zamień 1/0 na true/false
+    }
   }
 
   f.close();                                          // Zamknij plik
@@ -3460,6 +3555,7 @@ void loadSettingsFromSD()
   Serial.printf("  weather : %d\n", cfgWeather);     // Status pogody
   Serial.printf("  rss     : %d\n", cfgRSS);         // Status RSS
   Serial.printf("  logs    : %d\n", cfgLogs);        // Status Logs
+  Serial.printf("  banks   : %d\n", cfgBanks);       // Status Logs
 }
 
 
@@ -3469,12 +3565,6 @@ void loadSettingsFromSD()
 // ----------------------------------------------------------------------------
 void initLogFile()
 {
-  if (!SD.begin())   // Inicjalizacja karty SD
-  {
-    Serial.println("Błąd inicjalizacji SD!");  // Komunikat błędu jeśli SD nie działa
-    return;                                    // Zakończenie funkcji w przypadku błędu
-  }
-
   if (!SD.exists(logFileName))  // Sprawdzenie, czy plik logu już istnieje
   {
     logFile = SD.open(logFileName, FILE_WRITE); // Utworzenie nowego pliku do zapisu
@@ -3740,7 +3830,7 @@ void setup()
     timer1.attach(1, timerCallback);   // Ustaw timer, aby wywoływał funkcję updateTimer co sekundę
     timer2.attach(300, getWeatherData);   // Ustaw timer, aby wywoływał funkcję getWeatherData co 5 minut
     //timer3.attach(10, switchWeatherData);   // Ustaw timer, aby wywoływał funkcję switchWeatherData co 10 sekund
-    fetchStationsFromServer();
+    loadStationsForBank();
     canvas.fillScreen(COLOR_BLACK);
     tft_pushCanvas(canvas);
     changeStation();
@@ -3796,7 +3886,7 @@ void loop()
   if (updateClockFlag == true)
   {
     updateClockFlag = false;                   // Reset flagi
-    if ((RSSactive == false) && (progMenuActive == false))  // Jeśli RSS nie jest wyświetlany i menu USTAWIENIA nie jest aktywne
+    if ((RSSactive == false) && (progMenuActive == false) && (logViewActive == false))  // Jeśli RSS nie jest wyświetlany i menu USTAWIENIA oraz log granych stacji nie są aktywne
     {
       drawClock();                            // Rysuj aktualny czas na ekranie
     }
@@ -3853,7 +3943,7 @@ void loop()
     {
       IRupArrow = false;         // Zerowanie flagi
       progMenuIndex--;           // Przesunięcie indeksu w górę
-      if (progMenuIndex < 0) progMenuIndex = 3; // Zawijanie do końca menu
+      if (progMenuIndex < 0) progMenuIndex = 4; // Zawijanie do końca menu
       displayProgMenu();         // Odśwież menu na ekranie
     }
 
@@ -3862,7 +3952,7 @@ void loop()
     {
       IRdownArrow = false;       // Zerowanie flagi
       progMenuIndex++;           // Przesunięcie indeksu w dół
-      if (progMenuIndex > 3) progMenuIndex = 0; // Zawijanie do początku menu
+      if (progMenuIndex > 4) progMenuIndex = 0; // Zawijanie do początku menu
       displayProgMenu();         // Odśwież menu na ekranie
     }
 
@@ -3887,9 +3977,15 @@ void loop()
           cfgRSS = !cfgRSS;            // Toggle włącz/wyłącz
           Serial.println(cfgRSS ? "RSS ON" : "RSS OFF");
           break;
+
         case 3:                 // Logowanie zdarzeń
           cfgLogs = !cfgLogs;            // Toggle włącz/wyłącz
           Serial.println(cfgLogs ? "Rejestr granych ON" : "Rejestr granych OFF");
+          break;
+
+        case 4:                 // Aktualizacja banków z github
+          cfgBanks = !cfgBanks;            // Toggle włącz/wyłącz
+          Serial.println(cfgBanks ? "Aktualizuj z Github ON" : "Aktualizuj z Github OFF");
           break;
       }
 
@@ -3946,7 +4042,7 @@ void loop()
         currentSelection = 0;
         firstVisibleLine = 0;
         station_nr = 1;
-        fetchStationsFromServer();
+        loadStationsForBank();
       }
 
       changeStation();
