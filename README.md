@@ -214,6 +214,13 @@ Ekran listy folderów:
 
 <p align="center"> <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/folder_list.jpg" width="380"> </p>
 
+Ekran menu ustawień dla aktywacji poszczególnych funkcji (pogodynka, kartka z kalendarza, wiadomości RSS, zapis historii granych stacji):
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sarunia/ESP32_internet_radio_v3/main/Zdj%C4%99cia/menu%20ustawienia.jpg" width="380">
+</p>
+
+
 ## 💾 Struktura karty SD
 ```cpp
 /station_nr.txt ← ostatnia stacja radiowa
