@@ -1819,48 +1819,49 @@ void loadStationsForBank()
 // --------------------------------------------------------------------------
 void loadStationsFromSD()
 {
-  stationsCount = 0;                                   // Zerowanie licznika stacji
+  stationsCount = 0;   // Zerujemy licznik stacji przed wczytaniem nowego banku
 
-  // Budowa nazwy pliku banku, np. /bank01.txt
+  // Budowa nazwy pliku banku, np. /bank01.txt, /bank12.txt
   String fileNameWithBank =
     String("/bank") + (bank_nr < 10 ? "0" : "") + String(bank_nr) + ".txt";
 
   // Sprawdzenie czy plik banku istnieje na karcie SD
   if (!SD.exists(fileNameWithBank))
   {
-    Serial.println("Brak pliku banku na SD: " + fileNameWithBank); // Komunikat diagnostyczny
-    return;                                                       // Przerwij jeśli brak pliku
+    Serial.println("Brak pliku banku: " + fileNameWithBank);   // Diagnostyka
+    return;                                                    // Przerwij funkcję
   }
 
-  // Otwarcie pliku banku do odczytu
+  // Próba otwarcia pliku banku do odczytu
   File bankFile = SD.open(fileNameWithBank, FILE_READ);
   if (!bankFile)
   {
-    Serial.println("Nie można otworzyć pliku banku: " + fileNameWithBank); // Błąd otwarcia
+    Serial.println("Nie można otworzyć pliku banku");          // Błąd otwarcia
     return;
   }
 
-  Serial.println("Czytam stacje z: " + fileNameWithBank); // Informacja na Serial
+  Serial.println("Czytam stacje z SD...");
 
-  // Czytanie pliku linia po linii
+  // Czytanie pliku linia po linii aż do końca lub do MAX_STATIONS
   while (bankFile.available() && stationsCount < MAX_STATIONS)
   {
-    String line = bankFile.readStringUntil('\n'); // Odczyt jednej linii (jednej stacji)
-    line.trim();                                  // Usunięcie spacji i znaków końca linii
+    String line = bankFile.readStringUntil('\n');  // Odczyt jednej linii
+    line.replace("\r", "");                         // Usunięcie CR (Windows)
+    line.trim();                                    // Usunięcie spacji i śmieci
 
-    // Jeśli linia nie jest pusta – zapisz stację
-    if (line.length() > 0)
-    {
-      sanitizeAndSaveStation(line.c_str());       // Normalizacja i zapis stacji do pamięci
-      stationsCount++;                            // Zwiększenie licznika stacji
-    }
+    if (line.length() == 0) continue;               // Pomijamy puste linie
+
+    // Zapis stacji do EEPROM / RAM
+    // UWAGA: sanitizeAndSaveStation() zwiększa stationsCount
+    sanitizeAndSaveStation(line.c_str());
   }
 
-  bankFile.close();                               // Zamknięcie pliku po odczycie
+  bankFile.close();                                 // Zamknięcie pliku banku
 
-  Serial.print("Wczytano stacji: ");              // Podsumowanie
+  Serial.print("Wczytano stacji: ");
   Serial.println(stationsCount);
 }
+
 
 
 // Funkcja przetwarza i zapisuje stację do pamięci EEPROM
