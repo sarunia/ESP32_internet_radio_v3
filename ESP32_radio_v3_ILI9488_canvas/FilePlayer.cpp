@@ -10,14 +10,14 @@ void displayPlayer()
 
   int x = 0;
   int y = 25;
-  int lineHeight = 28;  // wysokość linii w pikselach
+  int lineHeight = 30;  // wysokość linii w pikselach
 
   canvas.setFont(&FreeSans12pt7b);
 
   // Nagłówek pliku/folderu
   canvas.setTextColor(COLOR_SKYBLUE);
-  String header = "   Odtwarzanie pliku " + String(previous_fileIndex + 1) + "/" + String(filesCount) +
-                  " folder " + String(previous_folderIndex + 1) + "/" + String(folderCount);
+  String header = "Odtwarzam Plik  " + String(previous_fileIndex + 1) + "/" + String(filesCount) +
+                  "  Folder  " + String(previous_folderIndex + 1) + "/" + String(folderCount);
   canvas.setCursor(x, y);
   canvas.print(fitTextToWidth(header, 460));
   y += lineHeight;
@@ -131,7 +131,7 @@ void displayPlayer()
 
   // --- Typ odtwarzanego pliku (MP3, FLAC, AAC, etc.) ---
   canvas.setTextColor(COLOR_SPRINGGREEN); // Kolor tekstu
-  canvas.setCursor(150, 280);           // Pozycja w dolnej części ekranu
+  canvas.setCursor(115, 280);           // Pozycja w dolnej części ekranu
   canvas.print(fileType);               // Wyświetlenie typu pliku
 
   // --- Wysyłanie całego canvasu na ekran TFT ---
@@ -543,6 +543,45 @@ void displayFolders()
 }
 
 
+// -------------------------------------------------------------
+// Wyświetlanie menu ustawień (program menu w trybie odtwarzacza)
+// Pokazuje opcje związane z odtwarzaniem plików
+// -------------------------------------------------------------
+void displayProgMenuPlayer()
+{
+  canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);      // Czyści cały ekran menu
+
+  canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
+  canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
+  canvas.setCursor(0, 30);                         // Pozycja tekstu "USTAWIENIA:"
+  canvas.println("USTAWIENIA PLAYERA:");              // Nagłówek menu
+
+  canvas.setFont(&FreeSans12pt7b);                   // Czcionka dla opcji
+
+  // Opcje menu
+  const char* options[2] =
+  {
+    cfgFileCountdown ? "Czas utworu: OD KONCA" : "Czas utworu: OD POCZATKU",
+    randomMode      ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF"
+  };
+
+  // Wyświetlenie opcji z podświetleniem
+  for (int i = 0; i < 2; i++)
+  {
+    if (i == progMenuIndexPlayer)
+      canvas.setTextColor(COLOR_YELLOW);       // Podświetlenie aktywnej opcji
+    else
+      canvas.setTextColor(COLOR_WHITE);        // Pozostałe opcje
+
+    canvas.setCursor(40, 80 + i * 50);            // Pozycje pionowe kolejnych linii
+    canvas.print(options[i]);
+  }
+
+  tft_pushCanvas(canvas);                          // Wyświetlenie menu na ekranie
+}
+
+
+
 // Funkcja do odtwarzania plików audio z wybranego folderu
 void playFromSelectedFolder()
 {
@@ -656,6 +695,70 @@ void playFromSelectedFolder()
         fileTime = String(buf);
       }
 
+      // --- MENU PLAYERA ---
+      if (IRprogButton)
+      {
+        IRprogButton = false;
+        progMenuActivePlayer = !progMenuActivePlayer;
+        displayActive  = progMenuActivePlayer;
+
+        if (progMenuActivePlayer)
+        {
+          progMenuIndexPlayer = 0;
+          displayProgMenuPlayer();
+        }
+        else
+        {
+          displayPlayer(); // powrót do ekranu playera
+        }
+      }
+
+      if (progMenuActivePlayer)
+      {
+        // --- Nawigacja w menu playera ---
+        if (IRupArrow)
+        {
+          IRupArrow = false;
+          progMenuIndexPlayer--;
+          if (progMenuIndexPlayer < 0)
+            progMenuIndexPlayer = progMenuPlayerOptions - 1;
+          displayProgMenuPlayer();
+        }
+
+        if (IRdownArrow)
+        {
+          IRdownArrow = false;
+          progMenuIndexPlayer++;
+          if (progMenuIndexPlayer >= progMenuPlayerOptions)
+            progMenuIndexPlayer = 0;
+          displayProgMenuPlayer();
+        }
+
+        if (IRokButton)
+        {
+          IRokButton = false;
+
+          switch (progMenuIndexPlayer)
+          {
+            case 0: // Odliczanie czasu od tyłu
+                cfgFileCountdown = !cfgFileCountdown;
+                Serial.println(cfgFileCountdown ? "Czas utworu: OD KONCA" : "Czas utworu: OD POCZATKU");
+                break;
+
+            case 1: // Losowe odtwarzanie
+                randomMode = !randomMode;
+                Serial.println(randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF");
+                //displayRandomMode(randomMode);
+                break;
+          }
+
+          displayProgMenuPlayer();
+        }
+
+        continue; // blokuje dalsze instrukcje w tej iteracji pętli -> menu playera ma priorytet
+      }
+
+
       // Wyjście do menu wyboru źródła audio - przycisk SOURCE
       if (IRsourceButton)
       {
@@ -667,7 +770,7 @@ void playFromSelectedFolder()
         break;
       }
 
-      if (IRrandomButton)
+      /*if (IRrandomButton)
       {
         IRrandomButton = false; // zresetuj flagę
         randomMode = !randomMode; // przełącz stan
@@ -675,7 +778,7 @@ void playFromSelectedFolder()
         displayStartTime = millis();
 
         displayRandomMode(randomMode); // pokaż na ekranie zmianę
-      }
+      }*/
 
       if (randomMode && fileEnd)
       {

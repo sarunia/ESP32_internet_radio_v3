@@ -46,6 +46,7 @@ extern int firstVisibleLine;
 extern int maxVisibleLines;
 extern int maxVisibleFolders;
 extern int currentSelection;
+extern int progMenuIndexPlayer;
 
 extern bool IRokButton;
 extern bool IRstopButton;
@@ -55,6 +56,7 @@ extern bool IRrightArrow;
 extern bool IRleftArrow;
 extern bool IRsourceButton;
 extern bool IRrandomButton;
+extern bool IRprogButton;
 
 extern bool fileSelection;
 extern bool folderSelection;
@@ -68,6 +70,8 @@ extern bool playNextFile;
 extern bool playPreviousFile;
 extern bool fileEnd;
 extern bool randomMode;
+extern bool cfgFileCountdown;
+extern bool progMenuActivePlayer;
 extern volatile bool updateClockFlag;
 
 extern String files[];
@@ -122,6 +126,7 @@ void saveFileAndFolderIndexes();
 void loadFileAndFolderIndexes();
 void printDirectoriesAndSavePaths(File dir, int numTabs, String currentPath);
 void displayRandomMode(bool randomEnabled);
+void displayProgMenuPlayer();
 
 extern void processIRCode();
 extern void volumeSetFromRemote();
@@ -130,8 +135,11 @@ extern bool isAudioFile(const char* name);
 
 extern void displayMenu();
 extern void listDirectories(const char *dirname);
+extern void saveSettingsToSD();
 
 int compareStringsWithNumbers(const String &a, const String &b);
 int getRandomFileIndex(int totalFiles);
+
+const int progMenuPlayerOptions = 2; // liczba opcji w menu playera
 
 #endif

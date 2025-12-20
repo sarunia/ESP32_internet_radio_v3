@@ -131,6 +131,7 @@ int totalRSSItems = 0;           // Liczba wiadomości RSS
 unsigned long DISPLAY_TIMEOUT = 12000; // Czas bezczynności, po którym program wraca do wyświetlania radia albo odtwarzanego pliku
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
+unsigned long audioDurationSec = 0;
 
 int messageIndex = 0;               // Indeks aktualnie wyświetlanej wiadomości
 int namedayLineIndex = 0;           // Indeks aktualnie wyświetlanej linii imienin
@@ -208,8 +209,12 @@ const char* logFileName = "/zdarzenia.txt"; // Nazwa pliku logu na karcie SD
 
 
 // MENU PROG (USTAWIENIA DODATKOWE)
-bool progMenuActive = false;              // Czy menu PROG jest aktualnie wyświetlane
-int  progMenuIndex  = 0;                  // Aktualnie zaznaczona pozycja menu PROG
+bool progMenuActiveRadio  = false;  // Menu PROG dla radia internetowego
+bool progMenuActivePlayer = false;  // Menu PROG dla odtwarzacza plików
+
+int progMenuIndexRadio  = 0;        // Indeks zaznaczenia w menu radia
+int progMenuIndexPlayer = 0;        // Indeks zaznaczenia w menu odtwarzacza
+
 
 
 // PODGLĄD LOGU NA EKRANIE (PRZEWIJANIE STRZAŁKAMI)
@@ -238,6 +243,7 @@ bool cfgWeather  = true;                  // Wyświetlanie pogody
 bool cfgRSS      = true;                  // Wyświetlanie kanałów RSS
 bool cfgLogs     = true;                  // Logowanie granych stacji i utworów
 bool cfgBanks    = true;                  // Wybór miedzy ładowaniem banków z karty / z github
+bool cfgFileCountdown = false;            // Odliczanie czasu utworu od końca
 
 String directories[MAX_DIRECTORIES];   // Tablica do przechowywania nazw folderów na karcie SD
 String files[MAX_FILES];               // Tablica do przechowywania nazw plików na karcie SD
@@ -250,6 +256,8 @@ String stationInfo;                    // Dodatkowe informacje o stacji radiowej
 String bitrateString;                  // Informacja o bitrate aktualnie odtwarzanego strumienia
 String sampleRateString;               // Informacja o częstotliwości próbkowania (Hz)
 String bitsPerSampleString;            // Informacja o liczbie bitów na próbkę audio
+String audioLengthString;              // Informacja o długości pliku audio
+String audioDurationString;
 
 String artistString;                   // Nazwa wykonawcy (odczytana z metadanych ID3)
 String titleString;                    // Tytuł utworu (odczytany z metadanych ID3)
@@ -2724,6 +2732,7 @@ void my_audio_info(Audio::msg_t m)
         if (currentOption == PLAY_FILES && audio.isRunning())
         {
           displayPlayer();
+          calculateAudioDuration();
         }
         if (currentOption == INTERNET_RADIO && audio.isRunning())
         {
@@ -2749,6 +2758,17 @@ void my_audio_info(Audio::msg_t m)
         if (endIndex == -1) endIndex = msg.length();
         bitsPerSampleString = msg.substring(bitsPerSampleIndex + 15, endIndex);
         bitsPerSampleString.trim();
+      }
+
+      // --- AudioLength ---
+      int audioLengthIndex = msg.indexOf("Audio-Length:");
+      if (audioLengthIndex != -1)
+      {
+        int endIndex = msg.indexOf('\n', audioLengthIndex);
+        if (endIndex == -1) endIndex = msg.length();
+        audioLengthString = msg.substring(audioLengthIndex + 13, endIndex);
+        audioLengthString.trim();
+        Serial.println("Długość pliku: " + audioLengthString);
       }
 
       // --- Brak ID3 tagów ---
@@ -2959,29 +2979,38 @@ void my_audio_info(Audio::msg_t m)
 }
 
 
-// Funkcja rysująca zegar
+// --------------------------------------------------------------------------
+// Funkcja rysująca zegar i licznik odtwarzanego pliku audio
+// Wyświetla:
+//  - aktualny czas systemowy
+//  - czas trwania odtwarzanego pliku (normalnie lub odliczanie od końca)
+//  - tryb losowego odtwarzania (RND)
+// --------------------------------------------------------------------------
 void drawClock()
 {
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo))
-    return;
 
+  // Pobranie czasu lokalnego, jeśli nie uda się, przerywamy
+  if (!getLocalTime(&timeinfo))
+      return;
+
+  // Formatowanie czasu HH:MM:SS
   char timeString[9];
   snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-  // Wyczyść obszar zegara
+  // Wyczyść obszar zegara na ekranie
   canvas.fillRect(245, 265, 245, 60, COLOR_BLACK);
 
-  // Narysuj zegar
+  // Narysuj aktualny czas systemowy
   canvas.setFont(&DS_DIGII35pt7b);
   canvas.setTextColor(COLOR_GOLD);
   canvas.setCursor(245, 310);
   canvas.print(timeString);
 
-  // Brak strumienia audio
+  // --- Brak strumienia audio ---
   if (!audio.isRunning())
   {
-    canvas.fillRect(0, 225, 480, 30, COLOR_BLACK);
+    canvas.fillRect(0, 225, 480, 30, COLOR_BLACK);  // Wyczyść obszar informacji audio
     canvas.setFont(&FreeMonoBold12pt7b);
     canvas.setTextColor(COLOR_RED);
     canvas.setCursor(5, 250);
@@ -2991,13 +3020,39 @@ void drawClock()
   // Licznik odtwarzanego pliku
   if (currentOption == PLAY_FILES && audio.isRunning() && isPlaying == true)
   {
-    unsigned long elapsed = millis() - trackStartMillis;
-    int seconds = (elapsed / 1000) % 60;
-    int minutes = (elapsed / 60000) % 60;
-    int hours   = (elapsed / 3600000);
+    unsigned long elapsedSec = (millis() - trackStartMillis) / 1000;
+    long displaySec;  // używamy long, aby można było mieć minus
+
+    if (cfgFileCountdown)
+    {
+      // Odliczanie od końca
+      displaySec = (long)audioDurationSec - (long)elapsedSec;
+    }
+    else
+    {
+      // Normalne odliczanie od początku
+      displaySec = (long)elapsedSec;
+    }
+
+    // Wyznaczenie znaku
+    char sign = ' ';
+    if (cfgFileCountdown)
+    {
+      // Zawsze minus przy odliczaniu od końca
+      sign = '-';
+      if (displaySec < 0) displaySec = -displaySec;  // tylko gdy przekroczy czas, zachowujemy liczbę dodatnią
+    }
+
+    int hours   = displaySec / 3600;
+    int minutes = (displaySec % 3600) / 60;
+    int seconds = displaySec % 60;
 
     char buffer[20];
-    snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+    if (hours > 0)
+      snprintf(buffer, sizeof(buffer), "%c%02dh:%02dm:%02ds", sign, hours, minutes, seconds);
+    else
+      snprintf(buffer, sizeof(buffer), "%c%02dm:%02ds", sign, minutes, seconds);
+
     fileTime = String(buffer);
 
     // miejsce na licznik utworu
@@ -3007,7 +3062,7 @@ void drawClock()
     canvas.setCursor(0, 310);
     canvas.print(fileTime);
 
-    if (randomMode == true)
+    if (randomMode)
     {
       canvas.setTextColor(COLOR_RED);
       canvas.setCursor(185, 310);
@@ -3017,6 +3072,7 @@ void drawClock()
 
   tft_pushCanvas(canvas);
 }
+
 
 
 void displayMenu()
@@ -3427,19 +3483,19 @@ void stopRecording()
 
 
 // -------------------------------------------------------------
-//  Wyświetlanie menu ustawień (program menu)
+//  Wyświetlanie menu ustawień (program menu w trybie radia)
 //  Pokazuje trzy opcje: Kalendarz, Pogoda, RSS
 //  Zaznaczona opcja zmienia kolor na żółty
-//  Teksty ON/OFF pochodzą ze zmiennych cfgCalendar / cfgWeather / cfgRSS
+//  Teksty ON/OFF pochodzą ze zmiennych cfgCalendar / cfgWeather / cfgRSS / cfgLogs / cfgBanks
 // -------------------------------------------------------------
-void displayProgMenu()
+void displayProgMenuRadio()
 {
   canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);      // Czyści cały ekran menu
 
   canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
   canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
-  canvas.setCursor(100, 30);                         // Pozycja tekstu "USTAWIENIA:"
-  canvas.println("USTAWIENIA:");                     // Nagłówek menu
+  canvas.setCursor(0, 30);                         // Pozycja tekstu "USTAWIENIA:"
+  canvas.println("USTAWIENIA RADIA:");                     // Nagłówek menu
 
   canvas.setFont(&FreeSans12pt7b);                   // Zmiana na mniejszą czcionkę dla opcji
 
@@ -3454,7 +3510,7 @@ void displayProgMenu()
 
   for (int i = 0; i < 5; i++)                                  // Pętla przez 5 pozycji menu
   {
-    if (i == progMenuIndex)
+    if (i == progMenuIndexRadio)
       canvas.setTextColor(COLOR_YELLOW);                       // Podświetlenie aktywnej opcji
     else
       canvas.setTextColor(COLOR_WHITE);                        // Kolor pozostałych
@@ -3735,6 +3791,49 @@ void displayLogEntry()
 }
 
 
+// --------------------------------------------------------------------------
+// Oblicza czas trwania pliku audio na podstawie Audio-Length i BitRate
+// Wymaga:
+//  - audioLengthString  (np. "3494057")
+//  - bitrateString      (np. "192000")
+// Wynik:
+//  - audioDurationSec   (czas w sekundach)
+//  - audioDurationString (format mm:ss lub hh:mm:ss)
+// --------------------------------------------------------------------------
+void calculateAudioDuration()
+{
+  if (audioLengthString.length() == 0 || bitrateString.length() == 0)
+    return;
+
+  unsigned long audioBytes = audioLengthString.toInt();   // bajty
+  unsigned long bitrate    = bitrateString.toInt();       // bit/s
+
+  if (audioBytes == 0 || bitrate == 0)
+    return;
+
+  // czas w sekundach
+  audioDurationSec = (audioBytes * 8UL) / bitrate;
+
+  // formatowanie czasu
+  int seconds = audioDurationSec % 60;
+  int minutes = (audioDurationSec / 60) % 60;
+  int hours   = audioDurationSec / 3600;
+
+  char buffer[16];
+
+  if (hours > 0)
+    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", hours, minutes, seconds);
+  else
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, seconds);
+
+  audioDurationString = String(buffer);
+
+  Serial.print("Czas trwania utworu: ");
+  Serial.println(audioDurationString);
+}
+
+
+
 
 /*-------------------------------------------------------GŁÓWNY SETUP PROGRAMU----------------------------------------------------------*/
 
@@ -3887,7 +3986,7 @@ void loop()
   if (updateClockFlag == true)
   {
     updateClockFlag = false;                   // Reset flagi
-    if ((RSSactive == false) && (progMenuActive == false) && (logViewActive == false))  // Jeśli RSS nie jest wyświetlany i menu USTAWIENIA oraz log granych stacji nie są aktywne
+    if ((RSSactive == false) && (progMenuActiveRadio == false) && (logViewActive == false))  // Jeśli RSS nie jest wyświetlany i menu USTAWIENIA oraz log granych stacji nie są aktywne
     {
       drawClock();                            // Rysuj aktualny czas na ekranie
     }
@@ -3922,13 +4021,13 @@ void loop()
   {
     IRprogButton = false;    // Zerowanie flagi przycisku
 
-    progMenuActive = !progMenuActive;   // Toggle włącz/wyłącz menu PROG
-    displayActive = progMenuActive;     // Ustawienie stanu wyświetlacza zgodnie z menu PROG
+    progMenuActiveRadio = !progMenuActiveRadio;   // Toggle włącz/wyłącz menu PROG
+    displayActive = progMenuActiveRadio;     // Ustawienie stanu wyświetlacza zgodnie z menu PROG
 
-    if (progMenuActive)  // Jeśli menu PROG jest aktywne
+    if (progMenuActiveRadio)  // Jeśli menu PROG jest aktywne
     {
-      progMenuIndex = 0;         // Ustaw początkowy indeks zaznaczenia w menu
-      displayProgMenu();         // Wyświetl menu PROG
+      progMenuIndexRadio = 0;    // Ustaw początkowy indeks zaznaczenia w menu
+      displayProgMenuRadio();    // Wyświetl menu PROG
     }
     else
     {
@@ -3937,24 +4036,24 @@ void loop()
   }
 
   // Jeśli menu PROG jest aktywne, obsługa nawigacji i zmiany ustawień
-  if (progMenuActive)
+  if (progMenuActiveRadio)
   {
     // Nawigacja w górę
     if (IRupArrow)
     {
       IRupArrow = false;         // Zerowanie flagi
-      progMenuIndex--;           // Przesunięcie indeksu w górę
-      if (progMenuIndex < 0) progMenuIndex = 4; // Zawijanie do końca menu
-      displayProgMenu();         // Odśwież menu na ekranie
+      progMenuIndexRadio--;      // Przesunięcie indeksu w górę
+      if (progMenuIndexRadio < 0) progMenuIndexRadio = 4; // Zawijanie do końca menu
+      displayProgMenuRadio();         // Odśwież menu na ekranie
     }
 
     // Nawigacja w dół
     if (IRdownArrow)
     {
       IRdownArrow = false;       // Zerowanie flagi
-      progMenuIndex++;           // Przesunięcie indeksu w dół
-      if (progMenuIndex > 4) progMenuIndex = 0; // Zawijanie do początku menu
-      displayProgMenu();         // Odśwież menu na ekranie
+      progMenuIndexRadio++;           // Przesunięcie indeksu w dół
+      if (progMenuIndexRadio > 4) progMenuIndexRadio = 0; // Zawijanie do początku menu
+      displayProgMenuRadio();         // Odśwież menu na ekranie
     }
 
     // Zatwierdzenie opcji przyciskiem OK
@@ -3962,7 +4061,7 @@ void loop()
     {
       IRokButton = false;        // Zerowanie flagi
 
-      switch (progMenuIndex)
+      switch (progMenuIndexRadio)
       {
         case 0:                 // Kalendarz
           cfgCalendar = !cfgCalendar;  // Toggle włącz/wyłącz
@@ -3990,7 +4089,7 @@ void loop()
           break;
       }
 
-      displayProgMenu();           // Odśwież menu po zmianie ustawienia
+      displayProgMenuRadio();      // Odśwież menu po zmianie ustawienia
       saveSettingsToSD();          // Zapis aktualnych ustawień na kartę SD
     }
 
