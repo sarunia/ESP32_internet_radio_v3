@@ -18,7 +18,7 @@
 #include "SPI.h"                  // Biblioteka do obsługi komunikacji SPI (ekran TFT, karta SD itp.)
 #include <Adafruit_GFX.h>         // Uniwersalna biblioteka graficzna Adafruit GFX (podstawy rysowania, obsługa czcionek)
 #include "FilePlayer.h"           // Obsługa odtwarzacza plików przeniesiona tutaj
-#include <WiFiClientSecure.h>
+#include <WiFiClientSecure.h>     // Biblioteka umożliwiająca bezpieczne połączenia TLS/SSL (HTTPS) w ESP32/ESP8266
 
 // Definicje pinów dla SPI wyświetlacza TFT typu ILI9488
 #define TFT_CS    5    // Pin CS (Chip Select) – wybór układu TFT
@@ -77,7 +77,7 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Konwersja z 8-bitowego RGB na 16-bit RGB565
 #define RGB565(r,g,b)  (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
-#define MAX_LOG_ENTRIES 20   // Maksymalna liczba wpisów w logu, po osiągnięciu tej liczby najstarszy wpis zostanie usunięty
+#define MAX_LOG_ENTRIES 20   // Maksymalna liczba wpisów w logu granych stacji, po osiągnięciu tej liczby najstarszy wpis zostanie usunięty
 
 // Definicje kolorów
 #define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
@@ -128,10 +128,10 @@ int rssCycleIndex = 0;           // Index który news obecnie pokazujemy
 unsigned long lastRSSUpdate = 0; // Czas ostatniego pobrania
 int totalRSSItems = 0;           // Liczba wiadomości RSS
 
-unsigned long DISPLAY_TIMEOUT = 12000; // Czas bezczynności, po którym program wraca do wyświetlania radia albo odtwarzanego pliku
+unsigned long displayTimeout = 12000;  // Czas bezczynności, po którym program wraca do wyświetlania radia albo odtwarzanego pliku
 unsigned long lastSwitchWeather = 0;   // Czas ostatniego przełączenia widoku pogody (do rotacji danych)
 unsigned long lastSwitchCalendar = 0;  // Czas ostatniego przełączenia widoku kalendarza
-unsigned long audioDurationSec = 0;
+unsigned long audioDurationSec = 0;    // Całkowity czas trwania aktualnego utworu w sekundach
 
 int messageIndex = 0;               // Indeks aktualnie wyświetlanej wiadomości
 int namedayLineIndex = 0;           // Indeks aktualnie wyświetlanej linii imienin
@@ -158,8 +158,9 @@ bool isMuted = false;             // Flaga pomocnicza czy aktualnie jest wycisze
 bool isPaused = false;            // Flaga pomocnicza czy aktualnie jest pauza
 bool stationsList = false;        // Flaga określająca aktywny tryb wyświetlania listy stacji radiowych podczas przewijania wyboru
 bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
-bool randomMode = false;
-bool RSSactive = false;
+bool randomMode = false;          // Flaga trybu losowego odtwarzania plików audio (ON/OFF)
+bool RSSactive = false;           // Flaga informująca, czy aktywne jest wyświetlanie / pobieranie RSS
+
 
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
 unsigned long seconds = 0;                // Licznik sekund timera
@@ -195,7 +196,7 @@ unsigned long lastRecordRead = 0;         // Czas ostatniego odebrania danych (m
 
 String stationUrl = "";                   // URL strumienia radiowego (np. http://radio.pl/stream)
 
-#define RECORD_BUFFER_SIZE 65536           // Rozmiar bufora odczytu danych z sieci (64 KB)
+#define RECORD_BUFFER_SIZE 65536          // Rozmiar bufora odczytu danych z sieci (64 KB)
 uint8_t buffer[RECORD_BUFFER_SIZE];       // Bufor tymczasowy danych przed zapisem na SD
 
 bool headersRead = false;                 // Czy nagłówki HTTP zostały już odczytane
@@ -214,7 +215,6 @@ bool progMenuActivePlayer = false;  // Menu PROG dla odtwarzacza plików
 
 int progMenuIndexRadio  = 0;        // Indeks zaznaczenia w menu radia
 int progMenuIndexPlayer = 0;        // Indeks zaznaczenia w menu odtwarzacza
-
 
 
 // PODGLĄD LOGU NA EKRANIE (PRZEWIJANIE STRZAŁKAMI)
@@ -257,7 +257,7 @@ String bitrateString;                  // Informacja o bitrate aktualnie odtwarz
 String sampleRateString;               // Informacja o częstotliwości próbkowania (Hz)
 String bitsPerSampleString;            // Informacja o liczbie bitów na próbkę audio
 String audioLengthString;              // Informacja o długości pliku audio
-String audioDurationString;
+String audioDurationString;            // Sformatowany czas trwania utworu (mm:ss lub hh:mm:ss) do wyświetlania na ekranie
 
 String artistString;                   // Nazwa wykonawcy (odczytana z metadanych ID3)
 String titleString;                    // Tytuł utworu (odczytany z metadanych ID3)
@@ -296,14 +296,16 @@ Ticker timer2;                            // Timer do getWeatherData co 60s
 Ticker timer3;                            // Timer do przełączania wyświetlania danych pogodoych w ostatniej linii co 10s
 
 volatile bool updateClockFlag = false;  // flaga do odświeżania zegara
+bool audioDurationFromDecoder = false;   // true = czas pochodzi z "audio file duration"
 
+// Procedura obsługi przerwania timera
 void IRAM_ATTR timerCallback()
 {
   updateClockFlag = true;  // Tylko ustaw flagę w przerwaniu
   //drawClock();
 }
 
-WiFiClient client;                        // Obiekt do obsługi połączenia WiFi dla klienta HTTP
+WiFiClient client;             // Obiekt do obsługi połączenia WiFi dla klienta HTTP
 
 SPIClass spi = SPIClass(HSPI); // Użycie HSPI dla ekranu
 
@@ -2695,7 +2697,7 @@ void fetchRSSFeedCycle()
 
       tft_pushCanvas(canvas);
 
-      DISPLAY_TIMEOUT = 20000;
+      displayTimeout = 20000;
 
       break;
     }
@@ -2770,6 +2772,38 @@ void my_audio_info(Audio::msg_t m)
         audioLengthString.trim();
         Serial.println("Długość pliku: " + audioLengthString);
       }
+
+      // --- Audio file duration (z dekodera) ---
+      int durationIndex = msg.indexOf("audio file duration:");
+      if (durationIndex != -1)
+      {
+        int endIndex = msg.indexOf("seconds", durationIndex);
+        if (endIndex != -1)
+        {
+          String durationStr = msg.substring(durationIndex + 20, endIndex);
+          durationStr.trim();
+
+          audioDurationSec = durationStr.toInt();   // SEKUNDY
+          audioDurationFromDecoder = true;
+
+          // Formatowanie czasu
+          int seconds = audioDurationSec % 60;
+          int minutes = (audioDurationSec / 60) % 60;
+          int hours   = audioDurationSec / 3600;
+
+          char buffer[20];
+          if (hours > 0)
+            snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+          else
+            snprintf(buffer, sizeof(buffer), "%02dm:%02ds", minutes, seconds);
+
+          audioDurationString = String(buffer);
+
+          Serial.print("Czas trwania z dekodera: ");
+          Serial.println(audioDurationString);
+        }
+      }
+
 
       // --- Brak ID3 tagów ---
       int metadata = msg.indexOf("skip metadata");
@@ -3494,7 +3528,7 @@ void displayProgMenuRadio()
 
   canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
   canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
-  canvas.setCursor(0, 30);                         // Pozycja tekstu "USTAWIENIA:"
+  canvas.setCursor(50, 30);                         // Pozycja tekstu "USTAWIENIA:"
   canvas.println("USTAWIENIA RADIA:");                     // Nagłówek menu
 
   canvas.setFont(&FreeSans12pt7b);                   // Zmiana na mniejszą czcionkę dla opcji
@@ -3792,45 +3826,74 @@ void displayLogEntry()
 
 
 // --------------------------------------------------------------------------
-// Oblicza czas trwania pliku audio na podstawie Audio-Length i BitRate
-// Wymaga:
-//  - audioLengthString  (np. "3494057")
-//  - bitrateString      (np. "192000")
+// Oblicza czas trwania pliku audio
+//
+// PRIORYTET ŹRÓDŁA CZASU:
+// 1) Jeśli dekoder audio podał bezpośrednio czas trwania utworu
+//    (np. komunikat "audio file duration: XXX seconds"),
+//    to używamy tej wartości i NIE liczymy nic sami.
+// 2) Jeśli dekoder nie podał czasu – obliczamy go na podstawie:
+//    - rozmiaru pliku (Audio-Length)
+//    - bitrate'u (BitRate)
+//
+// Wymaga danych wejściowych:
+//  - audioLengthString  → rozmiar pliku w bajtach (np. "3494057")
+//  - bitrateString      → bitrate w bitach na sekundę (np. "192000")
+//
 // Wynik:
-//  - audioDurationSec   (czas w sekundach)
-//  - audioDurationString (format mm:ss lub hh:mm:ss)
+//  - audioDurationSec    → całkowity czas trwania utworu w sekundach
+//  - audioDurationString → sformatowany czas (mm:ss lub hh:mm:ss)
 // --------------------------------------------------------------------------
 void calculateAudioDuration()
 {
+  // Jeśli czas trwania został już dostarczony przez dekoder audio,
+  // nie wykonujemy ponownie obliczeń z długości pliku i bitrate’u
+  if (audioDurationFromDecoder)
+    return;
+
+  // Brak wymaganych danych — nie można obliczyć czasu
   if (audioLengthString.length() == 0 || bitrateString.length() == 0)
     return;
 
+  // Konwersja danych wejściowych:
+  // audioBytes → rozmiar pliku w bajtach
+  // bitrate    → bitrate w bitach na sekundę
   unsigned long audioBytes = audioLengthString.toInt();   // bajty
   unsigned long bitrate    = bitrateString.toInt();       // bit/s
 
+  // Zabezpieczenie przed dzieleniem przez zero
   if (audioBytes == 0 || bitrate == 0)
     return;
 
-  // czas w sekundach
+  // Obliczenie czasu trwania utworu:
+  // bajty → bity (×8), następnie dzielenie przez bitrate (bit/s)
+  // wynik = całkowity czas trwania w sekundach
   audioDurationSec = (audioBytes * 8UL) / bitrate;
 
-  // formatowanie czasu
+  // Rozbicie czasu (sekundy) na godziny, minuty i sekundy
   int seconds = audioDurationSec % 60;
   int minutes = (audioDurationSec / 60) % 60;
   int hours   = audioDurationSec / 3600;
 
-  char buffer[16];
+  // Bufor na sformatowany napis czasu
+  char buffer[20];
 
+  // Format hh:mm:ss jeśli czas ≥ 1 godziny
   if (hours > 0)
-    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", hours, minutes, seconds);
+    snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+  // W przeciwnym wypadku format mm:ss
   else
-    snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, seconds);
+    snprintf(buffer, sizeof(buffer), "%02dm:%02ds", minutes, seconds);
 
+  // Zapis gotowego czasu do Stringa używanego przez UI
   audioDurationString = String(buffer);
 
-  Serial.print("Czas trwania utworu: ");
+  // Debug — informacja, że czas został policzony matematycznie
+  Serial.print("Czas trwania z kalkulatora: ");
   Serial.println(audioDurationString);
 }
+
+
 
 
 
@@ -4168,11 +4231,11 @@ void loop()
         firstVisibleLine = 0;
 
         // Wyczyść obszar w canvas
-        canvas.fillRect(0, 0, 480, 225, COLOR_BLACK);
+        canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
 
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_CYAN);
-        canvas.setCursor(30, 25);
+        canvas.setCursor(25, 25);
         String header = "Ładowanie folderów z karty SD, czekaj...";
         header = normalizePolish(header);
         canvas.print(header);
@@ -4351,9 +4414,9 @@ void loop()
 
 
   // Powrót do wyświetlania radia po bezczynności
-  if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT) && (currentOption == INTERNET_RADIO)) 
+  if (displayActive && (millis() - displayStartTime > displayTimeout) && (currentOption == INTERNET_RADIO)) 
   {
-    DISPLAY_TIMEOUT = 12000;
+    displayTimeout = 12000;
     station_nr = previous_station_nr; 
     bank_nr = previous_bank_nr;
     displayActive = false;

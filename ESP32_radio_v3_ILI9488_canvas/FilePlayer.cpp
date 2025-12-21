@@ -553,16 +553,19 @@ void displayProgMenuPlayer()
 
   canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
   canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
-  canvas.setCursor(0, 30);                         // Pozycja tekstu "USTAWIENIA:"
+  canvas.setCursor(30, 30);                         // Pozycja tekstu "USTAWIENIA:"
   canvas.println("USTAWIENIA PLAYERA:");              // Nagłówek menu
 
   canvas.setFont(&FreeSans12pt7b);                   // Czcionka dla opcji
 
   // Opcje menu
+  String fileTime = cfgFileCountdown ? "Czas utworu: OD KOŃCA" : "Czas utworu: OD POCZĄTKU";
+  fileTime = normalizePolish(fileTime);  // Normalizacja pod poslkie znaki diakrytyczne
+
   const char* options[2] =
   {
-    cfgFileCountdown ? "Czas utworu: OD KONCA" : "Czas utworu: OD POCZATKU",
-    randomMode      ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF"
+    fileTime.c_str(),
+    randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF"
   };
 
   // Wyświetlenie opcji z podświetleniem
@@ -652,22 +655,31 @@ void playFromSelectedFolder()
     Serial.println(filesCount);
     Serial.println(fullPath);
 
-    // Start odtwarzania
+    // Start odtwarzania pliku audio z systemu plików
     audio.connecttoFS(SD, fullPath.c_str());
-    // Zerowanie poprzednich tagów ID3
+
+    // Zerowanie poprzednich tagów ID3 (tytuł, artysta, album, rok)
     artistString = "";
     titleString = "";
     albumString = "";
     yearString = "";
-    id3tag = false;  // Flaga oznaczająca, że jeszcze nie mamy danych ID3
+    id3tag = false;              // Flaga oznaczająca brak aktualnie odczytanych danych ID3
 
-    trackStartMillis = millis();
-    fileTime = "00h:00m:00s";
-    isPlaying = true;
-    previous_fileIndex = fileIndex;
-    previous_folderIndex = folderIndex;
+    // Zerowanie informacji o czasie trwania pliku
+    audioDurationFromDecoder = false; // Flaga: czy czas utworu pochodzi z dekodera
+    audioDurationSec = 0;             // Czas trwania w sekundach (liczony później)
+    audioDurationString = "";         // Czas trwania w formacie tekstowym (hh:mm:ss lub mm:ss)
 
-    displayPlayer();
+    // Ustawienie czasu startu odtwarzania i inicjalizacja licznika czasu wyświetlanego na ekranie
+    trackStartMillis = millis();      // Zapamiętanie momentu rozpoczęcia odtwarzania
+    fileTime = "00h:00m:00s";         // Wstępna wartość wyświetlanego czasu utworu
+
+    isPlaying = true;                 // Flaga informująca, że plik jest aktualnie odtwarzany
+    previous_fileIndex = fileIndex;   // Zapamiętanie indeksu poprzedniego pliku
+    previous_folderIndex = folderIndex; // Zapamiętanie indeksu poprzedniego folderu
+
+    displayPlayer();                  // Wyświetlenie ekranu odtwarzacza z aktualnym plikiem
+
 
     // Pętla oczekiwania na koniec pliku / sterowanie z pilota
     while (isPlaying && !menuRequested && !stopAll)
@@ -742,7 +754,7 @@ void playFromSelectedFolder()
           {
             case 0: // Odliczanie czasu od tyłu
                 cfgFileCountdown = !cfgFileCountdown;
-                Serial.println(cfgFileCountdown ? "Czas utworu: OD KONCA" : "Czas utworu: OD POCZATKU");
+                Serial.println(cfgFileCountdown ? "Czas utworu: OD KOŃCA" : "Czas utworu: OD POCZĄTKU");
                 break;
 
             case 1: // Losowe odtwarzanie
@@ -950,7 +962,7 @@ void playFromSelectedFolder()
 
 
       // Powrót do wyświetlania playera po bezczynności
-      if (displayActive && (millis() - displayStartTime > DISPLAY_TIMEOUT)) 
+      if (displayActive && (millis() - displayStartTime > displayTimeout)) 
       {
         inputBuffer = "";
         inputActive = false;

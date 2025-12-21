@@ -72,7 +72,9 @@ extern bool fileEnd;
 extern bool randomMode;
 extern bool cfgFileCountdown;
 extern bool progMenuActivePlayer;
+extern bool audioDurationFromDecoder;
 extern volatile bool updateClockFlag;
+
 
 extern String files[];
 extern String directories[];
@@ -90,10 +92,12 @@ extern String fileType;
 extern String volumeDisplay;
 extern String fileTime;
 extern String inputBuffer;
+extern String audioDurationString;
 
 extern unsigned long trackStartMillis;
 extern unsigned long displayStartTime;
-extern unsigned long DISPLAY_TIMEOUT;
+extern unsigned long displayTimeout;
+extern unsigned long audioDurationSec;
 
 enum MenuOption
 {
@@ -140,6 +144,6 @@ extern void saveSettingsToSD();
 int compareStringsWithNumbers(const String &a, const String &b);
 int getRandomFileIndex(int totalFiles);
 
-const int progMenuPlayerOptions = 2; // liczba opcji w menu playera
+const int progMenuPlayerOptions = 2;
 
 #endif
