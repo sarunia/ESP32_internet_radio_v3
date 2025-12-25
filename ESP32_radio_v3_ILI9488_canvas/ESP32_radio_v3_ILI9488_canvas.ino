@@ -2004,6 +2004,13 @@ void readStationFromSD()
 // Funkcja odpowiedzialna za zmianę aktualnie wybranej stacji radiowej.
 void changeStation()
 {
+  // --- Reset stanów UI przy zmianie stacji ---
+  displayActive = false;
+  stationsList = false;
+  progMenuActiveRadio = false;
+  logViewActive = false;
+  RSSactive = false;
+
   mp3 = flac = aac = vorbis = wav = false;
   bitratePresent = false;
   isRecording = false;
