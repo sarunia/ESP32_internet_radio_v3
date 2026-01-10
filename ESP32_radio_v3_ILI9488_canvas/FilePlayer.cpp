@@ -427,7 +427,7 @@ void loadFileAndFolderIndexes()
       fileIndex = f.parseInt();
       f.close();
       Serial.print("Odczytano fileIndex = ");
-      Serial.println(fileIndex);
+      Serial.println(fileIndex + 1);
     }
   }
 
@@ -439,7 +439,7 @@ void loadFileAndFolderIndexes()
       folderIndex = f.parseInt();
       f.close();
       Serial.print("Odczytano folderIndex = ");
-      Serial.println(folderIndex);
+      Serial.println(folderIndex + 1);
     }
   }
 }
@@ -549,40 +549,41 @@ void displayFolders()
 // -------------------------------------------------------------
 void displayProgMenuPlayer()
 {
-  canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);      // Czyści cały ekran menu
+  canvas.fillRect(0, 0, 480, 320, COLOR_BLACK);
 
-  canvas.setFont(&FreeSansBold18pt7b);               // Duża czcionka do nagłówka
-  canvas.setTextColor(COLOR_CYAN);                   // Kolor nagłówka
-  canvas.setCursor(30, 30);                         // Pozycja tekstu "USTAWIENIA:"
-  canvas.println("USTAWIENIA PLAYERA:");              // Nagłówek menu
+  canvas.setFont(&FreeSansBold18pt7b);
+  canvas.setTextColor(COLOR_CYAN);
+  canvas.setCursor(30, 30);
+  canvas.println("USTAWIENIA PLAYERA:");
 
-  canvas.setFont(&FreeSans12pt7b);                   // Czcionka dla opcji
+  canvas.setFont(&FreeSans12pt7b);
 
-  // Opcje menu
   String fileTime = cfgFileCountdown ? "Czas utworu: OD KOŃCA" : "Czas utworu: OD POCZĄTKU";
-  fileTime = normalizePolish(fileTime);  // Normalizacja pod poslkie znaki diakrytyczne
+  fileTime = normalizePolish(fileTime);
 
-  const char* options[2] =
+  String resume = lastPlaying ? "Wznów odtwarzanie: ON" : "Wznów odtwarzanie: OFF";
+  resume = normalizePolish(resume);
+
+  const char* options[3] =
   {
     fileTime.c_str(),
-    randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF"
+    randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF",
+    resume.c_str()
   };
 
-  // Wyświetlenie opcji z podświetleniem
-  for (int i = 0; i < 2; i++)
+  for (int i = 0; i < 3; i++)
   {
     if (i == progMenuIndexPlayer)
-      canvas.setTextColor(COLOR_YELLOW);       // Podświetlenie aktywnej opcji
+      canvas.setTextColor(COLOR_YELLOW);
     else
-      canvas.setTextColor(COLOR_WHITE);        // Pozostałe opcje
+      canvas.setTextColor(COLOR_WHITE);
 
-    canvas.setCursor(40, 80 + i * 50);            // Pozycje pionowe kolejnych linii
+    canvas.setCursor(40, 80 + i * 50);
     canvas.print(options[i]);
   }
 
-  tft_pushCanvas(canvas);                          // Wyświetlenie menu na ekranie
+  tft_pushCanvas(canvas);
 }
-
 
 
 // Funkcja do odtwarzania plików audio z wybranego folderu
@@ -603,9 +604,14 @@ void playFromSelectedFolder()
     return;
   }
 
-  // Zbuduj listę plików audio w folderze
   filesCount = 0;
-  fileIndex = 0;
+
+  if (!lastPlaying)   // jeśli nie wznawiamy, startujemy od pierwszego pliku
+  {
+    fileIndex = 0;
+  }
+
+  // Zbuduj listę plików audio w folderze
   while (true)
   {
     File entry = root.openNextFile();
@@ -712,7 +718,7 @@ void playFromSelectedFolder()
       {
         IRprogButton = false;
         progMenuActivePlayer = !progMenuActivePlayer;
-        displayActive  = progMenuActivePlayer;
+        displayActive = progMenuActivePlayer;
 
         if (progMenuActivePlayer)
         {
@@ -752,22 +758,27 @@ void playFromSelectedFolder()
 
           switch (progMenuIndexPlayer)
           {
-            case 0: // Odliczanie czasu od tyłu
-                cfgFileCountdown = !cfgFileCountdown;
-                Serial.println(cfgFileCountdown ? "Czas utworu: OD KOŃCA" : "Czas utworu: OD POCZĄTKU");
-                break;
+            case 0: // Czas utworu
+              cfgFileCountdown = !cfgFileCountdown;
+              Serial.println(cfgFileCountdown ? "Czas utworu: OD KOŃCA" : "Czas utworu: OD POCZĄTKU");
+              break;
 
             case 1: // Losowe odtwarzanie
-                randomMode = !randomMode;
-                Serial.println(randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF");
-                //displayRandomMode(randomMode);
-                break;
+              randomMode = !randomMode;
+              Serial.println(randomMode ? "Losowe odtwarzanie: ON" : "Losowe odtwarzanie: OFF");
+              break;
+
+            case 2: // WZNÓW ODTWARZANIE
+              lastPlaying = !lastPlaying;
+              Serial.println(lastPlaying ? "Wznów odtwarzanie: ON" : "Wznów odtwarzanie: OFF");
+              break;
           }
 
           displayProgMenuPlayer();
+          saveSettingsToSD();          // Zapis aktualnych ustawień na kartę SD
         }
 
-        continue; // blokuje dalsze instrukcje w tej iteracji pętli -> menu playera ma priorytet
+        continue; // menu playera ma priorytet
       }
 
 
@@ -781,16 +792,6 @@ void playFromSelectedFolder()
         isPlaying = false;
         break;
       }
-
-      /*if (IRrandomButton)
-      {
-        IRrandomButton = false; // zresetuj flagę
-        randomMode = !randomMode; // przełącz stan
-        displayActive = true;
-        displayStartTime = millis();
-
-        displayRandomMode(randomMode); // pokaż na ekranie zmianę
-      }*/
 
       if (randomMode && fileEnd)
       {
@@ -861,6 +862,7 @@ void playFromSelectedFolder()
         Serial.printf("Zatwierdzono folder: %d -> %s\n", folderIndex + 1, directories[folderIndex].c_str());
 
         // Rozpocznij odtwarzanie z wybranego folderu
+        saveFileAndFolderIndexes();
         playFromSelectedFolder();
         return; // nie kontynuuj starej pętli
       }
@@ -873,6 +875,7 @@ void playFromSelectedFolder()
         displayActive = false;
         audio.stopSong();
         isPlaying = false;
+        saveFileAndFolderIndexes();
         break;
       }
 

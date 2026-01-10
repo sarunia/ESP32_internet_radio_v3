@@ -73,6 +73,7 @@ extern bool randomMode;
 extern bool cfgFileCountdown;
 extern bool progMenuActivePlayer;
 extern bool audioDurationFromDecoder;
+extern bool lastPlaying;
 extern volatile bool updateClockFlag;
 
 
@@ -144,6 +145,6 @@ extern void saveSettingsToSD();
 int compareStringsWithNumbers(const String &a, const String &b);
 int getRandomFileIndex(int totalFiles);
 
-const int progMenuPlayerOptions = 2;
+const int progMenuPlayerOptions = 3;
 
 #endif

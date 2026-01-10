@@ -160,6 +160,7 @@ bool stationsList = false;        // Flaga określająca aktywny tryb wyświetla
 bool folderList = false;          // Flaga określająca aktywny tryb wyświetlania listy folderów z karty SD
 bool randomMode = false;          // Flaga trybu losowego odtwarzania plików audio (ON/OFF)
 bool RSSactive = false;           // Flaga informująca, czy aktywne jest wyświetlanie / pobieranie RSS
+bool lastPlaying = false;         // Flaga informująca, czy aktywne jest wznowienie odtwarzania plików audio z karty od ostatniego miejsca
 
 
 unsigned long displayStartTime = 0;       // Czas rozpoczęcia wyświetlania komunikatu
@@ -3591,7 +3592,10 @@ void saveSettingsToSD()
   f.println(cfgLogs ? 1 : 0);                         // Zapisz 1 lub 0
 
   f.print("banks=");                                  // Zapis ustawienia banków
-  f.println(cfgBanks ? 1 : 0);                         // Zapisz 1 lub 0
+  f.println(cfgBanks ? 1 : 0);                        // Zapisz 1 lub 0
+
+  f.print("resume=");                                 // Wznów odtwarzanie plików z ostatniego miejsca
+  f.println(lastPlaying ? 1 : 0);                     // Zapisz 1 lub 0
 
   f.close();                                          // Zamknij plik
   Serial.println("Ustawienia zapisane do settings.txt"); // Potwierdzenie
@@ -3644,6 +3648,10 @@ void loadSettingsFromSD()
     {
         cfgBanks = (line.substring(6).toInt() == 1);      // Zamień 1/0 na true/false
     }
+    else if (line.startsWith("resume="))
+    {
+      lastPlaying = (line.substring(7).toInt() == 1);     // Wznów odtwarzanie
+    }
   }
 
   f.close();                                          // Zamknij plik
@@ -3654,6 +3662,7 @@ void loadSettingsFromSD()
   Serial.printf("  rss     : %d\n", cfgRSS);         // Status RSS
   Serial.printf("  logs    : %d\n", cfgLogs);        // Status Logs
   Serial.printf("  banks   : %d\n", cfgBanks);       // Status Logs
+  Serial.printf("  resume  : %d\n", lastPlaying);    // Stuatus wznowienia odtwarzania
 }
 
 
@@ -3981,7 +3990,7 @@ void setup()
   currentSelection = station_nr - 1;
   firstVisibleLine = max(0, currentSelection - maxVisibleLines / 2);
 
-  loadFileAndFolderIndexes();
+  //loadFileAndFolderIndexes();
 
   // Rozpoczęcie konfiguracji Wi-Fi i połączenie z siecią
   if (wifiManager.autoConnect("ESP Internet Radio"))
@@ -4218,7 +4227,7 @@ void loop()
       changeStation();
     }
     
-    if (currentOption == PLAY_FILES)
+    /*if (currentOption == PLAY_FILES)
     {
       // --- Pierwsze wejście: wczytanie folderów z SD ---
       if (!displayActive && !folderSelection)
@@ -4264,7 +4273,64 @@ void loop()
           playFromSelectedFolder();
         }
       }
+    }*/
+
+    if (currentOption == PLAY_FILES)
+    {
+      // Pierwsze wejście: wczytanie folderów z SD
+      if (!displayActive && !folderSelection)
+      {
+        displayActive = true;
+
+        if (!SD.begin(SD_CS))
+        {
+          Serial.println("Błąd inicjalizacji karty SD!");
+          return;
+        }
+
+        // Wyczyść ekran
+        canvas.fillRect(0, 0, 480, 230, COLOR_BLACK);
+        canvas.setFont(&FreeSans12pt7b);
+        canvas.setTextColor(COLOR_CYAN);
+        canvas.setCursor(25, 25);
+        String header = "Ładowanie folderów z karty SD, czekaj...";
+        header = normalizePolish(header);
+        canvas.print(header);
+        tft_pushCanvas(canvas);
+        audio.stopSong();
+
+        // Wczytanie listy folderów
+        listDirectories("/");
+
+        // Obsługa wznawiania odtwarzania pliku audio z karty SD
+        if (lastPlaying)
+        {
+          loadFileAndFolderIndexes(); // wczyta folderIndex i fileIndex
+          Serial.println("RESUME aktywne – startuję ostatni folder i plik");
+          folderSelection = false;
+          playFromSelectedFolder();
+          return;  // nie kontynuuj listowania folderów
+        }
+
+        // Normalny tryb – pokaz listę folderów
+        folderSelection = true;
+        Serial.println("Lista folderów gotowa, wybierz folder i zatwierdź OK");
+      }
+      else
+      {
+        // Drugie OK: potwierdzenie wyboru folderu i start odtwarzania
+        if (folderSelection == true)
+        {
+          folderSelection = false;
+          Serial.println("Start odtwarzania folderu");
+          volumeValue = 15;
+          audio.setVolume(volumeValue);
+          playFromSelectedFolder();
+        }
+      }
     }
+
+
   }
 
   // Przycisk pilota FF+ zwiększanie numeru banku
