@@ -3,7 +3,8 @@
 // -------------------------------------------------------------------------------------
 //  Projekt: Internetowe radio + odtwarzacz plików z karty SD z kolorowym ekranem TFT
 //  Platforma: ESP32
-//
+//  Moduł ESP32-S3 N16R8 - Dopisek N16R8 oznacza, że posiada 16 MB pamięci Flash
+//  (na program) oraz 8 MB pamięci PSRAM (pamięć RAM typu SPI)
 // -------------------------------------------------------------------------------------
 //  Środowisko kompilacji:
 // -------------------------------------------------------------------------------------
