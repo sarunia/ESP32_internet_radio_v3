@@ -1,3 +1,58 @@
+// =====================================================================================
+//  ESP32 Internet Radio + SD Audio File Player
+// -------------------------------------------------------------------------------------
+//  Projekt: Internetowe radio + odtwarzacz plików z karty SD z kolorowym ekranem TFT
+//  Platforma: ESP32
+//
+// -------------------------------------------------------------------------------------
+//  Środowisko kompilacji:
+// -------------------------------------------------------------------------------------
+//  Arduino IDE        : 2.3.7
+//  ESP32 Boards       : 3.3.5
+//
+// -------------------------------------------------------------------------------------
+//  Biblioteki użyte w projekcie:
+// -------------------------------------------------------------------------------------
+//
+//  ESP32-audioI2S     : 3.4.4
+//    https://github.com/schreibfaul1/ESP32-audioI2S
+//
+//  WiFiManager       : 2.0.17
+//    https://github.com/tzapu/WiFiManager
+//
+//  ArduinoJson       : 7.4.2
+//    https://arduinojson.org/
+//
+//  Adafruit GFX      : (dowolna aktualna wersja)
+//    https://github.com/adafruit/Adafruit-GFX-Library
+//
+//  Time (Arduino)    
+//    https://github.com/PaulStoffregen/Time
+//
+//  SD / FS / SPI     : biblioteki wbudowane w ESP32 Arduino Core
+//
+//  HTTPClient        : biblioteka wbudowana w ESP32 Arduino Core
+//
+//  EEPROM            : biblioteka wbudowana w ESP32 Arduino Core
+//
+//  Ticker            : biblioteka wbudowana w ESP32 Arduino Core
+//
+//  WiFiClientSecure  : biblioteka wbudowana w ESP32 Arduino Core (TLS / HTTPS)
+//
+// -------------------------------------------------------------------------------------
+//  Czcionki (Adafruit GFX Fonts)
+// -------------------------------------------------------------------------------------
+//  FreeSans12pt7b
+//  FreeMonoBold12pt7b
+//  FreeMonoBold18pt7b
+//  FreeSansBold18pt7b
+//  FreeMono18pt7b
+//  DS_DIGII35pt7b    (cyfrowa czcionka do zegara)
+//
+// =====================================================================================
+
+
+
 #include <FreeSans12pt7b.h>       // Czcionka Sans, 12pt, normalna – dobra do nagłówków i mniejszych opisów
 #include <FreeMonoBold12pt7b.h>   // Czcionka Mono (stała szerokość), 12pt, pogrubiona – przydatna np. do tabel lub danych liczbowych
 #include <FreeMonoBold18pt7b.h>   // Czcionka Mono (stała szerokość), 18pt, pogrubiona – wyraźna, nadaje się np. do liczników
@@ -2015,6 +2070,7 @@ void changeStation()
   mp3 = flac = aac = vorbis = wav = false;
   bitratePresent = false;
   isRecording = false;
+  bitrateString = "";
 
   stationInfo.remove(0);  // Usunięcie wszystkich znaków z obiektu stationInfo
 
@@ -2731,12 +2787,15 @@ void my_audio_info(Audio::msg_t m)
       msg.trim(); // usuń spacje i \r\n
 
       // --- BitRate ---
-      int bitrateIndex = msg.indexOf("BitRate:");
+      //int bitrateIndex = msg.indexOf("BitRate:");
+      int bitrateIndex = msg.indexOf("Bitrate (b/s):");
       if (bitrateIndex != -1)
       {
         int endIndex = msg.indexOf('\n', bitrateIndex);
         if (endIndex == -1) endIndex = msg.length();
-        bitrateString = msg.substring(bitrateIndex + 8, endIndex);
+
+        //bitrateString = msg.substring(bitrateIndex + 8, endIndex); 
+        bitrateString = msg.substring(bitrateIndex + 14, endIndex);
         bitrateString.trim();
 
         if (currentOption == PLAY_FILES && audio.isRunning())
@@ -2750,13 +2809,38 @@ void my_audio_info(Audio::msg_t m)
         }
       }
 
+      // --- estimated bitrate ---
+      int est_bitrateIndex = msg.indexOf("estimated bitrate (b/s):");
+      if (est_bitrateIndex != -1)
+      {
+        int endIndex = msg.indexOf('\n', est_bitrateIndex);
+        if (endIndex == -1) endIndex = msg.length(); 
+
+        bitrateString = msg.substring(est_bitrateIndex + 24, endIndex);
+        bitrateString.trim();
+
+        if (currentOption == PLAY_FILES && audio.isRunning())
+        {
+          displayPlayer();
+          calculateAudioDuration();
+        }
+        if (currentOption == INTERNET_RADIO && audio.isRunning())
+        {
+          displayRadio();
+        }
+      }
+
+
+
       // --- SampleRate ---
-      int sampleRateIndex = msg.indexOf("SampleRate:");
+      //int sampleRateIndex = msg.indexOf("SampleRate:");
+      int sampleRateIndex = msg.indexOf("SampleRate (Hz):");
       if (sampleRateIndex != -1)
       {
         int endIndex = msg.indexOf('\n', sampleRateIndex);
         if (endIndex == -1) endIndex = msg.length();
-        sampleRateString = msg.substring(sampleRateIndex + 11, endIndex);
+        //sampleRateString = msg.substring(sampleRateIndex + 11, endIndex);
+        sampleRateString = msg.substring(sampleRateIndex + 16, endIndex);
         sampleRateString.trim();
       }
 
@@ -2766,8 +2850,18 @@ void my_audio_info(Audio::msg_t m)
       {
         int endIndex = msg.indexOf('\n', bitsPerSampleIndex);
         if (endIndex == -1) endIndex = msg.length();
-        bitsPerSampleString = msg.substring(bitsPerSampleIndex + 15, endIndex);
+        bitsPerSampleString = msg.substring(bitsPerSampleIndex + 14, endIndex);
         bitsPerSampleString.trim();
+
+        if (currentOption == PLAY_FILES && audio.isRunning())
+        {
+          displayPlayer();
+          calculateAudioDuration();
+        }
+        if (currentOption == INTERNET_RADIO && audio.isRunning())
+        {
+          displayRadio();
+        }
       }
 
       // --- AudioLength ---
@@ -2782,13 +2876,15 @@ void my_audio_info(Audio::msg_t m)
       }
 
       // --- Audio file duration (z dekodera) ---
-      int durationIndex = msg.indexOf("audio file duration:");
+      //int durationIndex = msg.indexOf("audio file duration:");
+      int durationIndex = msg.indexOf("Duration (s):");
       if (durationIndex != -1)
       {
         int endIndex = msg.indexOf("seconds", durationIndex);
         if (endIndex != -1)
         {
-          String durationStr = msg.substring(durationIndex + 20, endIndex);
+          //String durationStr = msg.substring(durationIndex + 20, endIndex);
+          String durationStr = msg.substring(durationIndex + 13, endIndex);
           durationStr.trim();
 
           audioDurationSec = durationStr.toInt();   // SEKUNDY
@@ -3976,7 +4072,7 @@ void setup()
   // Wyślij canvas na ekran
   tft_pushCanvas(canvas);
 
-  audioBuffer.changeMaxBlockSize(16384);  // Wywołanie metody na obiekcie audioBuffer, is default 1600 for mp3 and aac, set 16384 for FLAC 
+  //audioBuffer.changeMaxBlockSize(16384);  // Wywołanie metody na obiekcie audioBuffer, is default 1600 for mp3 and aac, set 16384 for FLAC 
 
   // Inicjalizuj pamięć EEPROM z odpowiednim rozmiarem
   EEPROM.begin(MAX_STATIONS * (STATION_NAME_LENGTH + 1));  // 99 * 43 = 4257 bajtów
