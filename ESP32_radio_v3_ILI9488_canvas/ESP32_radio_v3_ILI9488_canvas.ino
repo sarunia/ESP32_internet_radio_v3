@@ -2876,37 +2876,37 @@ void my_audio_info(Audio::msg_t m)
         Serial.println("Długość pliku: " + audioLengthString);
       }
 
-      // --- Audio file duration (z dekodera) ---
-      //int durationIndex = msg.indexOf("audio file duration:");
+      // --- Duration ---
       int durationIndex = msg.indexOf("Duration (s):");
       if (durationIndex != -1)
       {
-        int endIndex = msg.indexOf("seconds", durationIndex);
-        if (endIndex != -1)
-        {
-          //String durationStr = msg.substring(durationIndex + 20, endIndex);
-          String durationStr = msg.substring(durationIndex + 13, endIndex);
-          durationStr.trim();
+        int valueStart = durationIndex + strlen("Duration (s):");
+        
+        // koniec linii albo koniec stringa
+        int endIndex = msg.indexOf('\n', valueStart);
+        if (endIndex == -1) endIndex = msg.length();
 
-          audioDurationSec = durationStr.toInt();   // SEKUNDY
-          audioDurationFromDecoder = true;
+        String durationStr = msg.substring(valueStart, endIndex);
+        durationStr.trim();
 
-          // Formatowanie czasu
-          int seconds = audioDurationSec % 60;
-          int minutes = (audioDurationSec / 60) % 60;
-          int hours   = audioDurationSec / 3600;
+        audioDurationSec = durationStr.toInt();   // SEKUNDY
+        audioDurationFromDecoder = true;
 
-          char buffer[20];
-          if (hours > 0)
-            snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
-          else
-            snprintf(buffer, sizeof(buffer), "%02dm:%02ds", minutes, seconds);
+        // Formatowanie czasu
+        int seconds = audioDurationSec % 60;
+        int minutes = (audioDurationSec / 60) % 60;
+        int hours   = audioDurationSec / 3600;
 
-          audioDurationString = String(buffer);
+        char buffer[20];
+        if (hours > 0)
+          snprintf(buffer, sizeof(buffer), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+        else
+          snprintf(buffer, sizeof(buffer), "%02dm:%02ds", minutes, seconds);
 
-          Serial.print("Czas trwania z dekodera: ");
-          Serial.println(audioDurationString);
-        }
+        audioDurationString = String(buffer);
+
+        Serial.print("Czas trwania z dekodera: ");
+        Serial.println(audioDurationString);
       }
 
 
@@ -3223,14 +3223,20 @@ void displayMenu()
   canvas.setFont(&FreeSansBold18pt7b);
   canvas.setTextColor(COLOR_CYAN);  
   canvas.setCursor(30, 30);
-  canvas.print("Wybierz zrodlo dzwieku:");
+  //canvas.print("Wybierz zrodlo dzwieku:");
+  String choose = "Wybierz źródło dźwięku:";
+  choose = normalizePolish(choose);
+  canvas.print(choose);
+
+  String player = "Odtwarzacz plików";
+  player = normalizePolish(player);
 
   switch (currentOption)
   {
     case PLAY_FILES:
       canvas.setTextColor(COLOR_YELLOW);
       canvas.setCursor(0, 80);
-      canvas.print(">>  Odtwarzacz plikow");
+      canvas.print(">>  " + player);
 
       canvas.setTextColor(COLOR_WHITE);
       canvas.setCursor(0, 120);
@@ -3240,7 +3246,7 @@ void displayMenu()
     case INTERNET_RADIO:
       canvas.setTextColor(COLOR_WHITE);
       canvas.setCursor(0, 80);
-      canvas.print("      Odtwarzacz plikow");
+      canvas.print("      " + player);
 
       canvas.setTextColor(COLOR_YELLOW);
       canvas.setCursor(0, 120);
@@ -4068,7 +4074,10 @@ void setup()
   canvas.setFont(&FreeSansBold18pt7b);
   canvas.setTextColor(COLOR_YELLOW);
   canvas.setCursor(50, 100);
-  canvas.print("WITAJ SLUCHACZU !");
+  //canvas.print("WITAJ SLUCHACZU !");
+  String welcome = "WITAJ SŁUCHACZU !";
+  welcome = normalizePolish(welcome);
+  canvas.print(welcome);
 
   // Wyślij canvas na ekran
   tft_pushCanvas(canvas);
@@ -4097,7 +4106,10 @@ void setup()
     canvas.setFont(&FreeSansBold18pt7b);
     canvas.setTextColor(COLOR_GREEN);
     canvas.setCursor(60, 200);
-    canvas.print("POLACZONO Z WIFI");
+    //canvas.print("POLACZONO Z WIFI");
+    String connected = "POŁĄCZONO Z WIFI";
+    connected = normalizePolish(connected);
+    canvas.print(connected);
 
     // Wyślij canvas na ekran
     tft_pushCanvas(canvas);
