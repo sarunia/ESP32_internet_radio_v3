@@ -8,23 +8,23 @@
 // -------------------------------------------------------------------------------------
 //  Środowisko kompilacji:
 // -------------------------------------------------------------------------------------
-//  Arduino IDE        : 2.3.7
-//  ESP32 Boards       : 3.3.5
+//  Arduino IDE        : 2.3.9
+//  ESP32 Boards       : 3.3.8
 //
 // -------------------------------------------------------------------------------------
 //  Biblioteki użyte w projekcie:
 // -------------------------------------------------------------------------------------
 //
-//  ESP32-audioI2S     : 3.4.4
+//  ESP32-audioI2S     : 3.4.5
 //    https://github.com/schreibfaul1/ESP32-audioI2S
 //
 //  WiFiManager       : 2.0.17
 //    https://github.com/tzapu/WiFiManager
 //
-//  ArduinoJson       : 7.4.2
+//  ArduinoJson       : 7.4.3
 //    https://arduinojson.org/
 //
-//  Adafruit GFX      : (dowolna aktualna wersja)
+//  Adafruit GFX      : 1.12.6
 //    https://github.com/adafruit/Adafruit-GFX-Library
 //
 //  Time (Arduino)    
@@ -138,8 +138,9 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Definicje kolorów
 #define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
 #define COLOR_GREEN       RGB565(0, 255, 0)      // Zielony
-#define COLOR_BLUE        RGB565(0, 0, 255)      // Niebieski
+#define COLOR_BLUE        RGB565(0, 128, 255)      // Niebieski
 #define COLOR_YELLOW      RGB565(255, 255, 0)    // Żółty
+#define COLOR_GOLDEN_ORANGE RGB565(255, 165, 0) // Intensywny złoty pomarańcz
 #define COLOR_CYAN        RGB565(0, 255, 255)    // Turkus / błękitny
 #define COLOR_MAGENTA     RGB565(255, 0, 255)    // Magenta (fuksja)
 #define COLOR_ORANGE      RGB565(255, 128, 0)    // Pomarańczowy
@@ -174,7 +175,7 @@ int fileIndex = 0;                // Numer aktualnie wybranego pliku audio ze ws
 int previous_fileIndex = 0;       // Numer aktualnie wybranego pliku do przywrócenia na ekran po bezczynności
 int folderIndex = 0;              // Numer aktualnie wybranego folderu podczas przełączenia do odtwarzania z karty SD
 int previous_folderIndex = 0;     // Numer aktualnie wybranego folderu do przywrócenia na ekran po bezczynności oraz
-int volumeValue = 12;             // Wartość głośności, domyślnie ustawiona na 12
+int volumeValue = 17;             // Wartość głośności, domyślnie ustawiona na 12
 int volumeArray[100];             // Wartości głośności dla 100 stacji w każdym banku
 int cycle = 0;                    // Numer cyklu do danych pogodowych wyświetlanych w trzech rzutach co 10 sekund
 int maxVisibleLines = 6;          // Maksymalna liczba widocznych linii na ekranie OLED
@@ -861,6 +862,9 @@ void tft_init()
   // Kierunek i orientacja obrazu (MADCTL)
   tft_command(0x36);
   tft_data(0xE8);   // orientacja ekranu (rotacja, odbicie)
+  //tft_data(0x28);  // orientacja ekranu (rotacja, odbicie)
+
+  //tft_command(0x21); // inwersja kolortów dla ekranu IPS na TFT zakomentować
 
   // Format piksela – ustaw RGB666 (18 bitów na piksel)
   tft_command(0x3A);
@@ -1229,9 +1233,9 @@ void volumeSetFromRemote()
   {
     IRvolumeUp = false;
     volumeValue++;
-    if (volumeValue > 18)
+    if (volumeValue > 21)
     {
-      volumeValue = 18;
+      volumeValue = 21;
     }
     volumeSet();
   }
@@ -1380,7 +1384,7 @@ void loadVolumeSettings(int station, int bank)
       // Ustawiamy wszystkie elementy tablicy na 12
       for (int i = 0; i < 100; i++)
       {
-        volumeArray[i] = 12;  // Domyślna wartość głośności
+        volumeArray[i] = 17;  // Domyślna wartość głośności
         file.print(volumeArray[i]);
         if (i < 99)
         {
@@ -2146,7 +2150,7 @@ void changeStation()
 
     canvas.fillRect(0, 0, 480, 40, COLOR_BLACK);
     canvas.setFont(&FreeSansBold18pt7b);   // Ustawienie dużej czcionki dla nazwy stacji
-    canvas.setTextColor(COLOR_CYAN);        // Kolor nazwy stacji
+    canvas.setTextColor(COLOR_WHITE);        // Kolor nazwy stacji
     canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
     canvas.println(mainName);              // Wyświetlenie nazwy stacji
     tft_pushCanvas(canvas);
@@ -2332,8 +2336,20 @@ void displayRadio()
     mainName.trim(); // Usuń ewentualne spacje z początku i końca
 
     canvas.setFont(&FreeSansBold18pt7b);   // Ustawienie dużej czcionki dla nazwy stacji
-    canvas.setTextColor(COLOR_CYAN);        // Kolor nazwy stacji
-    canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
+    canvas.setTextColor(COLOR_GOLDEN_ORANGE);        // Kolor nazwy stacji
+
+    int16_t x1, y1;
+    uint16_t w, h;
+
+    // Pobierz bounding box tekstu
+    canvas.getTextBounds(mainName, 0, 0, &x1, &y1, &w, &h);
+
+    // Oblicz środek 
+    int x = (TFT_WIDTH - w) / 2;
+    int y = 30;
+    canvas.setCursor(x, y);              // Ustawienie pozycji początkowej dla tekstu
+
+    //canvas.setCursor(0, 30);               // Ustawienie pozycji początkowej dla tekstu
     canvas.println(mainName);              // Wyświetlenie nazwy stacji
 
     // Informacje o aktualnym strumieniu (stream title)
@@ -2348,7 +2364,7 @@ void displayRadio()
     bankInfo += " Stacja " + String(previous_station_nr);
 
     canvas.setFont(&FreeMonoBold12pt7b);  // Czcionka dla informacji o banku i stacji
-    canvas.setTextColor(COLOR_ORANGE);    // Kolor tekstu
+    canvas.setTextColor(COLOR_BLUE);    // Kolor tekstu
     canvas.setCursor(0, 310);             // Pozycja w dolnej części ekranu
     canvas.print(bankInfo);               // Wyświetlenie numeru banku i stacji
 
@@ -2637,7 +2653,7 @@ void showCalendarCarousel()
     if (msg.length() > 0)                                    // Jeśli mamy tekst do pokazania
     {
       canvas.setFont(&FreeSans12pt7b);                       // Ustawia czcionkę
-      canvas.setTextColor(COLOR_SKYBLUE);                    // Kolor tekstu – jasnoniebieski
+      canvas.setTextColor(COLOR_DEEPPINK);                   // Kolor tekstu
       canvas.setCursor(0, 190);                              // Ustawia pozycję startową tekstu
       canvas.print(msg);                                     // Wyświetla wiadomość
     }
@@ -3142,7 +3158,7 @@ void drawClock()
 
   // Narysuj aktualny czas systemowy
   canvas.setFont(&DS_DIGII35pt7b);
-  canvas.setTextColor(COLOR_GOLD);
+  canvas.setTextColor(COLOR_CYAN);
   canvas.setCursor(245, 310);
   canvas.print(timeString);
 
@@ -4432,7 +4448,7 @@ void loop()
         {
           folderSelection = false;
           Serial.println("Start odtwarzania folderu");
-          volumeValue = 15;
+          volumeValue = 17;
           audio.setVolume(volumeValue);
           playFromSelectedFolder();
         }
