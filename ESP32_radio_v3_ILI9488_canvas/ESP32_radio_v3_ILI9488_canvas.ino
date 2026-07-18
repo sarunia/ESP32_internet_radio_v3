@@ -8,14 +8,14 @@
 // -------------------------------------------------------------------------------------
 //  Środowisko kompilacji:
 // -------------------------------------------------------------------------------------
-//  Arduino IDE        : 2.3.9
-//  ESP32 Boards       : 3.3.8
+//  Arduino IDE        : 2.3.10
+//  ESP32 Boards       : 3.3.10
 //
 // -------------------------------------------------------------------------------------
 //  Biblioteki użyte w projekcie:
 // -------------------------------------------------------------------------------------
 //
-//  ESP32-audioI2S     : 3.4.5
+//  ESP32-audioI2S     : 3.4.7
 //    https://github.com/schreibfaul1/ESP32-audioI2S
 //
 //  WiFiManager       : 2.0.17
@@ -2798,6 +2798,26 @@ void my_audio_info(Audio::msg_t m)
 {
   switch(m.e)
   {
+    case Audio::evt_bitrate:
+    {
+      bitrateString = String(m.msg);
+      bitrateString.trim();
+
+      Serial.printf("bitrate: .... %s\n", bitrateString.c_str());
+
+      if (currentOption == PLAY_FILES && audio.isRunning())
+      {
+        displayPlayer();
+        calculateAudioDuration();
+      }
+
+      if (currentOption == INTERNET_RADIO && audio.isRunning())
+      {
+        displayRadio();
+      }
+    }
+    break;
+
     case Audio::evt_info:  
     {
       String msg = String(m.msg);   // zamiana na String
@@ -2805,7 +2825,7 @@ void my_audio_info(Audio::msg_t m)
 
       // --- BitRate ---
       //int bitrateIndex = msg.indexOf("BitRate:");
-      int bitrateIndex = msg.indexOf("Bitrate (b/s):");
+      /*int bitrateIndex = msg.indexOf("Bitrate (b/s):");
       if (bitrateIndex != -1)
       {
         int endIndex = msg.indexOf('\n', bitrateIndex);
@@ -2845,8 +2865,7 @@ void my_audio_info(Audio::msg_t m)
         {
           displayRadio();
         }
-      }
-
+      }*/
 
 
       // --- SampleRate ---
@@ -3053,7 +3072,7 @@ void my_audio_info(Audio::msg_t m)
     }
     break;
 
-    case Audio::evt_bitrate:        Serial.printf("bitrate: .... %s\n", m.msg); break; // icy-bitrate or bitrate from metadata
+    //case Audio::evt_bitrate:        Serial.printf("bitrate: .... %s\n", m.msg); break; // icy-bitrate or bitrate from metadata
     case Audio::evt_icyurl:         Serial.printf("icy URL: .... %s\n", m.msg); break;
     case Audio::evt_id3data:
     {
