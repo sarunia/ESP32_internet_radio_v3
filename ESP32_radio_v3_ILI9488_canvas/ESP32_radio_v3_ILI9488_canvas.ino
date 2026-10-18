@@ -9,7 +9,7 @@
 //  Środowisko kompilacji:
 // -------------------------------------------------------------------------------------
 //  Arduino IDE        : 2.3.10
-//  ESP32 Boards       : 3.3.11
+//  ESP32 Boards       : 3.3.12
 //
 // -------------------------------------------------------------------------------------
 //  Biblioteki użyte w projekcie:
@@ -2742,7 +2742,7 @@ void switchWeatherData()
       {
         // Rysowanie danych pogodowych
         canvas.setFont(&FreeSans12pt7b);
-        canvas.setTextColor(COLOR_PINK);
+        canvas.setTextColor(COLOR_GOLDEN_ORANGE);
         canvas.setCursor(0, 220);   // linia 1 → Y=220
         canvas.print(line1);
         canvas.setCursor(240, 220); // linia 2 → obok
