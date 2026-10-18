@@ -9,13 +9,13 @@
 //  Środowisko kompilacji:
 // -------------------------------------------------------------------------------------
 //  Arduino IDE        : 2.3.10
-//  ESP32 Boards       : 3.3.10
+//  ESP32 Boards       : 3.3.11
 //
 // -------------------------------------------------------------------------------------
 //  Biblioteki użyte w projekcie:
 // -------------------------------------------------------------------------------------
 //
-//  ESP32-audioI2S     : 3.4.7
+//  ESP32-audioI2S     : 4.0.0
 //    https://github.com/schreibfaul1/ESP32-audioI2S
 //
 //  WiFiManager       : 2.0.17
@@ -138,9 +138,9 @@ GFXcanvas16 canvas(TFT_WIDTH, TFT_HEIGHT);  // Bufor do rysowania całego ekranu
 // Definicje kolorów
 #define COLOR_RED         RGB565(255, 0, 0)      // Czerwony
 #define COLOR_GREEN       RGB565(0, 255, 0)      // Zielony
-#define COLOR_BLUE        RGB565(0, 128, 255)      // Niebieski
+#define COLOR_BLUE        RGB565(0, 128, 255)    // Niebieski
 #define COLOR_YELLOW      RGB565(255, 255, 0)    // Żółty
-#define COLOR_GOLDEN_ORANGE RGB565(255, 165, 0) // Intensywny złoty pomarańcz
+#define COLOR_GOLDEN_ORANGE RGB565(255, 165, 0)  // Intensywny złoty pomarańcz
 #define COLOR_CYAN        RGB565(0, 255, 255)    // Turkus / błękitny
 #define COLOR_MAGENTA     RGB565(255, 0, 255)    // Magenta (fuksja)
 #define COLOR_ORANGE      RGB565(255, 128, 0)    // Pomarańczowy
@@ -407,7 +407,7 @@ const int LEAD_LOW = 4600;          // 4,5 ms sygnał niski (początkowy)
 const int TOLERANCE = 160;          // Tolerancja (w mikrosekundach)
 const int HIGH_THRESHOLD = 1690;    // Sygnał "1"
 const int LOW_THRESHOLD = 600;      // Sygnał "0"
-
+/*
 #define rcCmdVolumeUp     0x0013   // Przycisk VOL+
 #define rcCmdVolumeDown   0x0008   // Przycisk VOL-
 #define rcCmdArrowRight   0x0014   // Przycisk w prawo - następna stacja / następny plik, od razu uruchamiane przejście
@@ -436,6 +436,37 @@ const int LOW_THRESHOLD = 600;      // Sygnał "0"
 #define rcCmdMemory       0x001F   // Przycisk MEMORY
 #define rcCmdRandom       0x001A   // Przycisk RANDOM
 #define rcCmdSearch       0x0043   // Przycisk Search
+*/
+
+
+#define rcCmdVolumeUp     0x0028   // Przycisk VOL+
+#define rcCmdVolumeDown   0x0024   // Przycisk VOL-
+#define rcCmdArrowRight   0x0026   // Przycisk w prawo - następna stacja / następny plik, od razu uruchamiane przejście
+#define rcCmdArrowLeft    0x0027   // Przycisk w lewo - poprzednia stacja / poprzedni plik, od razu uruchamiane przejście
+#define rcCmdArrowUp      0x0030   // Przycisk w górę - lista stacji / lista plików - krok do góry na przewijanej liście
+#define rcCmdArrowDown    0x0022   // Przycisk w dół - lista stacji / lista plikow - krok w dół na przewijanej liście
+#define rcCmdOk           0x0025   // Przycisk OK - zatwierdzenie wybranej stacji / banku / folderu / pliku
+#define rcCmdMode         0x0020   // Przycisk SOURCE - przełączanie radio internetowe / odtwarzacz plików
+#define rcCmdMute         0x0029   // Przycisk MUTE - wyciszenie
+#define rcCmdKey0         0x0012   // Przycisk "0"
+#define rcCmdKey1         0x0015   // Przycisk "1"
+#define rcCmdKey2         0x0014   // Przycisk "2"
+#define rcCmdKey3         0x0008   // Przycisk "3"
+#define rcCmdKey4         0x0011   // Przycisk "4"
+#define rcCmdKey5         0x0010   // Przycisk "5"
+#define rcCmdKey6         0x0009   // Przycisk "6"
+#define rcCmdKey7         0x0007   // Przycisk "7"
+#define rcCmdKey8         0x0006   // Przycisk "8"
+#define rcCmdKey9         0x0009   // Przycisk "9"
+#define rcCmdBankUp       0x0018   // Przycisk FF+ - lista banków / lista folderów - krok w dół na przewijanej liście
+#define rcCmdBankDown     0x0019   // Przycisk FF- lista banków / lista folderów - krok do góry na przewijanej liście
+#define rcCmdPauseResume  0x0032   // Przycisk Play / Pause
+#define rcCmdFolderList   0x0036   // Przycisk GOTO - wyświetlenie listy folderów z zaznaczeniem aktualnego folderu
+#define rcCmdStop         0x0033   // Przycisk STOP
+#define rcCmdProg         0x0023   // Przycisk PROG
+#define rcCmdMemory       0x0016   // Przycisk MEMORY
+#define rcCmdRandom       0x001A   // Przycisk RANDOM
+#define rcCmdSearch       0x0013   // Przycisk Search
 
 String inputBuffer = "";       // Bufor na wciśnięte cyfry
 unsigned long inputStartTime;  // Czas rozpoczęcia wpisywania numeru
@@ -861,10 +892,10 @@ void tft_init()
 
   // Kierunek i orientacja obrazu (MADCTL)
   tft_command(0x36);
-  tft_data(0xE8);   // orientacja ekranu (rotacja, odbicie)
-  //tft_data(0x28);  // orientacja ekranu (rotacja, odbicie)
+  //tft_data(0xE8);   // orientacja ekranu (rotacja, odbicie)
+  tft_data(0x28);  // orientacja ekranu (rotacja, odbicie)
 
-  //tft_command(0x21); // inwersja kolortów dla ekranu IPS na TFT zakomentować
+  tft_command(0x21); // inwersja kolortów dla ekranu IPS na TFT zakomentować
 
   // Format piksela – ustaw RGB666 (18 bitów na piksel)
   tft_command(0x3A);
@@ -1449,145 +1480,312 @@ String convertTimestampToDate(unsigned long timestamp)
 }
 
 
-// Funkcja do pobierania i wyciągania danych kalendarzowych z HTML poniższego adresu URL
+// Funkcja pomocnicza: pobiera tekst znajdujący się wewnątrz elementu
+// wskazanego przez nazwę klasy CSS.
+String getTextByClass(const String& html, const String& className)
+{
+  String marker = "class=\"" + className + "\"";
+
+  int pos = html.indexOf(marker);
+  if (pos == -1) return "";
+
+  int start = html.indexOf('>', pos);
+  if (start == -1) return "";
+
+  int end = html.indexOf('<', start + 1);
+  if (end == -1) return "";
+
+  String result = html.substring(start + 1, end);
+  result.trim();
+  return result;
+}
+
+// Funkcja pomocnicza: pobiera tekst między dwoma znacznikami HTML.
+String getTextBetween(const String& html,
+                      const String& startMarker,
+                      const String& endMarker)
+{
+  int start = html.indexOf(startMarker);
+  if (start == -1) return "";
+
+  start += startMarker.length();
+
+  int end = html.indexOf(endMarker, start);
+  if (end == -1 || end < start) return "";
+
+  String result = html.substring(start, end);
+  result.trim();
+  return result;
+}
+
+// Funkcja pomocnicza: usuwa znaczniki HTML i zamienia najczęstsze encje.
+String stripHtmlTags(String html)
+{
+  String result = "";
+  bool insideTag = false;
+
+  for (int i = 0; i < html.length(); i++)
+  {
+    char c = html[i];
+
+    if (c == '<')
+    {
+      insideTag = true;
+    }
+    else if (c == '>')
+    {
+      insideTag = false;
+    }
+    else if (!insideTag)
+    {
+      result += c;
+    }
+  }
+
+  result.replace("&bdquo;", "\"");
+  result.replace("&rdquo;", "\"");
+  result.replace("&amp;", "&");
+  result.replace("&nbsp;", " ");
+  result.replace("&#39;", "'");
+  result.replace("&quot;", "\"");
+
+  result.trim();
+  return result;
+}
+
+// Funkcja do pobierania i wyciągania danych kalendarzowych
+// z aktualnej struktury HTML strony kalendarzswiat.pl.
 void fetchAndDisplayCalendar()
 {
-  if (WiFi.status() == WL_CONNECTED)
+  if (WiFi.status() != WL_CONNECTED)
   {
-    HTTPClient http;
-    
-    // Adres URL do pobrania danych z kalendarza
-    const char* serverName = "https://www.kalendarzswiat.pl/dzisiaj";
+    Serial.println("Brak połączenia z WiFi.");
+    return;
+  }
 
-    // Wysyłamy żądanie GET do serwera
-    http.begin(serverName);
-    int httpResponseCode = http.GET();
+  HTTPClient http;
 
-    if (httpResponseCode == 200)  // 200 = OK
+  const char* serverName = "https://www.kalendarzswiat.pl/dzisiaj";
+
+  Serial.println("Pobieranie danych kalendarza...");
+
+  http.begin(serverName);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.addHeader("User-Agent", "Mozilla/5.0");
+
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode == HTTP_CODE_OK)
+  {
+    String payload = http.getString();
+
+    // Sprawdzamy, czy otrzymaliśmy właściwą stronę.
+    if (payload.indexOf("day-hero__date") == -1)
     {
-      // Otrzymujemy odpowiedź w formie string
-      String payload = http.getString();
-      
-      // Wyciągamy nazwę dnia tygodnia
-      int startWeekday = payload.indexOf("<span class=\"weekday\">") + 21;
-      int endWeekday = payload.indexOf("</span>", startWeekday);
-      String weekday = payload.substring(startWeekday, endWeekday);
-      weekday.trim();  // Usuwamy zbędne znaki
-
-      // Wyciągamy numer dnia
-      int startDay = payload.indexOf("<span class=\"day\">") + 18;
-      int endDay = payload.indexOf("</span>", startDay);
-      String day = payload.substring(startDay, endDay);
-      day.trim();  // Usuwamy zbędne znaki
-
-      // Wyciągamy nazwę miesiąca
-      int startMonth = payload.indexOf("<span class=\"month-name\">") + 24;
-      int endMonth = payload.indexOf("</span>", startMonth);
-      String month = payload.substring(startMonth, endMonth);
-      month.trim();  // Usuwamy zbędne znaki
-
-      // Wyciągamy rok
-      int startYear = payload.indexOf("<span class=\"year\">") + 19;
-      int endYear = payload.indexOf("</span>", startYear);
-      String year = payload.substring(startYear, endYear);
-      year.trim();  // Usuwamy zbędne znaki
-
-      // Wyciąganie imienin
-      int startImieniny = payload.indexOf("<p class=\"namedays\">") + 20;
-      int endImieniny = payload.indexOf("</p>", startImieniny);
-      namedays = payload.substring(startImieniny, endImieniny);
-      namedays.trim();  // Usuwamy zbędne znaki
-
-      // Wyciąganie ważnych wydarzeń
-      int startSwieta = payload.indexOf("<h3>Święta i ważne wydarzenia</h3>") + 34;
-      int endSwieta = payload.indexOf("</ul>", startSwieta);
-      String swieta = payload.substring(startSwieta, endSwieta);
-
-      // Szukamy wszystkich Świąt i ważnych wydarzeń
-      String allHolidays = "";
-      int startStrongIndex = swieta.indexOf("<strong>");
-      while (startStrongIndex != -1)
-      {
-        int endStrongIndex = swieta.indexOf("</strong>", startStrongIndex);  // Końcowy znacznik </strong>
-        String event = swieta.substring(startStrongIndex + 8, endStrongIndex);  // Wyciągamy tekst wewnątrz <strong>
-        allHolidays += event + "\n";  // Dodajemy wydarzenie do listy
-        startStrongIndex = swieta.indexOf("<strong>", endStrongIndex);  // Szukamy kolejnego <strong>
-      }
-
-      // Wyciąganie wschodu słońca
-      int startWschod = payload.indexOf("id=\"sunrise_time\">") + 18;
-      int endWschod = payload.indexOf("</b>", startWschod);
-      sunrise = payload.substring(startWschod, endWschod);
-      sunrise.trim();  // Usuwamy zbędne znaki
-
-      // Wyciąganie zachodu słońca
-      int startZachod = payload.indexOf("id=\"sunset_time\">") + 17;
-      int endZachod = payload.indexOf("</b>", startZachod);
-      sunset = payload.substring(startZachod, endZachod);
-      sunset.trim();  // Usuwamy zbędne znaki
-
-      // Wyciąganie długości dnia
-      int startDlugosc = payload.indexOf("id=\"day_duration\">") + 18;
-      int endDlugosc = payload.indexOf("</strong>", startDlugosc);
-      dayLength = payload.substring(startDlugosc, endDlugosc);
-      dayLength.trim();  // Usuwamy zbędne znaki
-
-      // Szukamy przysłów, uwzględniając oba możliwe nagłówki: "Przysłowia na dziś" i "Przysłowie na dziś"
-      String allProverbs = "";
-      int startProverbs = payload.indexOf("<h3>Przysłowia na dziś</h3>");
-      if (startProverbs == -1)
-      {
-        startProverbs = payload.indexOf("<h3>Przysłowie na dziś</h3>");  // Sprawdzamy alternatywny nagłówek
-      }
-      if (startProverbs != -1)
-      {
-        startProverbs += 26;  // +26, aby przejść za nagłówek
-        int endProverbs = payload.indexOf("</h3>", startProverbs);
-        String proverbs = payload.substring(startProverbs, endProverbs);
-        proverbs.trim();  // Usuwamy zbędne znaki
-
-        // Szukamy wszystkich przysłów
-        int startProverbIndex = payload.indexOf("<p class=\"section\">", startProverbs);
-        while (startProverbIndex != -1)
-        {
-          int endProverbIndex = payload.indexOf("</p>", startProverbIndex);
-          String proverb = payload.substring(startProverbIndex + 19, endProverbIndex); // 19 to długość "<p class=\"section\">"
-          allProverbs += proverb + "\n";  // Dodajemy przysłowie do listy
-          startProverbIndex = payload.indexOf("<p class=\"section\">", endProverbIndex);  // Szukamy kolejnego przysłowia
-        }
-      }
-
-      // Wyświetlamy dane na Serial Monitorze
-      calendar = weekday + ", " + day + " " + month + " " + year;
-      calendar.replace(">", "");  // Usuwamy wszystkie znaki '>'
-      
-      Serial.println("Dzis jest: " + calendar);
-      Serial.println("Wschód słońca: " + sunrise);
-      Serial.println("Zachód słońca: " + sunset);
-      Serial.println("Długość dnia: " + dayLength);
-      Serial.println("Imieniny: " + namedays);
-
-      Serial.println("Święta i ważne wydarzenia:");
-      Serial.println(allHolidays);
-
-      Serial.println("Przysłowia na dziś:");
-      Serial.println(allProverbs);
-
+      Serial.println("Blad: nie znaleziono nowej struktury kalendarza.");
+      http.end();
+      return;
     }
 
+    // ---------------------------------------------------------
+    // 1. DZIEN TYGODNIA
+    // HTML: <p class="day-hero__weekday">Dzisiaj · Niedziela</p>
+    // ---------------------------------------------------------
+
+    // Pobranie nazwy dnia tygodnia
+    String weekday = getTextByClass(payload, "day-hero__weekday");
+
+    // Wyszukanie separatora bezpośrednio w UTF-8.
+    // Znak "·" w UTF-8 to bajty 0xC2 0xB7.
+    int separator = weekday.lastIndexOf("\xC2\xB7");
+
+    if (separator != -1)
+    {
+      weekday = weekday.substring(separator + 2);
+    }
     else
     {
-      Serial.print("Błąd w zapytaniu HTTP. Kod błędu: ");
-      Serial.println(httpResponseCode);
+      // Zabezpieczenie, gdy separator został błędnie zdekodowany.
+      int space = weekday.lastIndexOf(' ');
+      if (space != -1)
+      {
+        weekday = weekday.substring(space + 1);
+      }
     }
 
-    // Zamykanie połączenia HTTP
-    http.end();
+    weekday.trim();
+
+    // ---------------------------------------------------------
+    // 2. DZIEN, MIESIAC I ROK
+    // ---------------------------------------------------------
+
+    String day = getTextByClass(payload, "day-hero__day");
+    String month = getTextByClass(payload, "day-hero__month");
+    String year = getTextByClass(payload, "day-hero__year");
+
+    if (year == "")
+    {
+      // Awaryjne pobranie roku z atrybutu data-year.
+      int astro = payload.indexOf("id=\"astro-ui-data\"");
+      if (astro != -1)
+      {
+        String fragment = payload.substring(astro,
+                           min((int)payload.length(), astro + 300));
+
+        year = getTextBetween(fragment, "data-year=\"", "\"");
+      }
+    }
+
+    calendar = weekday + ", " + day + " " + month + " " + year;
+
+    // ---------------------------------------------------------
+    // 3. IMIENINY
+    // HTML: <p class="nameday-groups"> ... </p>
+    // Usuwamy zagnieżdżone znaczniki <a>, <strong> i <span>.
+    // ---------------------------------------------------------
+
+    String namedayHtml = getTextBetween(
+      payload,
+      "<p class=\"nameday-groups\">",
+      "</p>"
+    );
+
+    namedays = stripHtmlTags(namedayHtml);
+
+    // ---------------------------------------------------------
+    // 4. SWIETA I WAZNE WYDARZENIA
+    // Pobieramy elementy listy z sekcji day-observances.
+    // ---------------------------------------------------------
+
+    String allHolidays = "";
+
+    int holidaySection = payload.indexOf("id=\"day-observances-title\"");
+
+    if (holidaySection != -1)
+    {
+      int listStart = payload.indexOf("<ul>", holidaySection);
+      int listEnd = payload.indexOf("</ul>", listStart);
+
+      if (listStart != -1 && listEnd != -1)
+      {
+        String holidayHtml = payload.substring(listStart, listEnd);
+
+        int liStart = holidayHtml.indexOf("<li>");
+
+        while (liStart != -1)
+        {
+          int liEnd = holidayHtml.indexOf("</li>", liStart);
+
+          if (liEnd == -1) break;
+
+          String item = holidayHtml.substring(liStart, liEnd);
+          String event = "";
+
+          // Nazwa wydarzenia może znajdować się w <a> albo <strong>.
+          int bodyStart = item.indexOf("day-observances__body");
+
+          if (bodyStart != -1)
+          {
+            int tagStart = item.indexOf('>', bodyStart);
+
+            if (tagStart != -1)
+            {
+              String body = item.substring(tagStart + 1);
+
+              // Usuwamy opis kategorii, np. "Ważna data".
+              int smallStart = body.indexOf("<small");
+
+              if (smallStart != -1)
+              {
+                body = body.substring(0, smallStart);
+              }
+
+              event = stripHtmlTags(body);
+            }
+          }
+
+          if (event.length() > 0)
+          {
+            if (allHolidays.length() > 0)
+            {
+              allHolidays += "\n";
+            }
+
+            allHolidays += event;
+          }
+
+          liStart = holidayHtml.indexOf("<li>", liEnd + 5);
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 5. WSCHOD SLONCA
+    // 6. ZACHOD SLONCA
+    // 7. DLUGOSC DNIA
+    // Identyfikatory pozostaly takie same w nowym HTML.
+    // ---------------------------------------------------------
+
+    sunrise = getTextBetween(payload, "id=\"sunrise_time\">", "</strong>");
+    sunset = getTextBetween(payload, "id=\"sunset_time\">", "</strong>");
+    dayLength = getTextBetween(payload, "id=\"day_duration\">", "</strong>");
+
+    // ---------------------------------------------------------
+    // 8. PRZYSLOWIE DNIA
+    // Nowa strona używa sekcji day-proverbs i znacznika blockquote.
+    // ---------------------------------------------------------
+
+    String allProverbs = "";
+
+    int proverbSection = payload.indexOf("class=\"day-proverbs");
+
+    if (proverbSection != -1)
+    {
+      int quoteStart = payload.indexOf("<blockquote>", proverbSection);
+      int quoteEnd = payload.indexOf("</blockquote>", quoteStart);
+
+      if (quoteStart != -1 && quoteEnd != -1)
+      {
+        String proverbHtml = payload.substring(
+          quoteStart + String("<blockquote>").length(),
+          quoteEnd
+        );
+
+        allProverbs = stripHtmlTags(proverbHtml);
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 9. DIAGNOSTYKA W MONITORZE SZEREGOWYM
+    // ---------------------------------------------------------
+
+    Serial.println();
+    Serial.println("===== KALENDARZ ONLINE =====");
+    Serial.println("Dzisiaj jest: " + calendar);
+    Serial.println("Wschod slonca: " + sunrise);
+    Serial.println("Zachod slonca: " + sunset);
+    Serial.println("Dlugosc dnia: " + dayLength);
+    Serial.println("Imieniny: " + namedays);
+
+    Serial.println("Swieta i wazne wydarzenia:");
+    Serial.println(allHolidays);
+
+    Serial.println("Przyslowie na dzis:");
+    Serial.println(allProverbs);
+    Serial.println("============================");
+
+    // Informujemy istniejący interfejs, że dane zostały pobrane.
+    displayActive = true;
+    displayStartTime = millis();
   }
   else
   {
-    Serial.println("Brak połączenia z WiFi.");
+    Serial.print("Blad zapytania HTTP. Kod: ");
+    Serial.println(httpResponseCode);
   }
+
+  // Zawsze zamykamy połączenie HTTP.
+  http.end();
 }
 
 
@@ -3081,7 +3279,7 @@ void my_audio_info(Audio::msg_t m)
       msg.trim(); // usuń spacje i \r\n
 
       // --- ARTYSTA ---
-      if (msg.startsWith("Artist:") || msg.startsWith("Artist=") || msg.startsWith("ARTIST="))
+      if (msg.startsWith("Artist:") || msg.startsWith("Artist=") || msg.startsWith("ARTIST=")  || msg.startsWith("artist="))
       {
         int sep = msg.indexOf(':');
         if (sep == -1) sep = msg.indexOf('=');
@@ -3092,7 +3290,7 @@ void my_audio_info(Audio::msg_t m)
       }
 
       // --- TYTUŁ ---
-      if (msg.startsWith("Title:") || msg.startsWith("Title=") || msg.startsWith("TITLE="))
+      if (msg.startsWith("Title:") || msg.startsWith("Title=") || msg.startsWith("TITLE=") || msg.startsWith("title="))
       {
         int sep = msg.indexOf(':');
         if (sep == -1) sep = msg.indexOf('=');
@@ -3103,7 +3301,7 @@ void my_audio_info(Audio::msg_t m)
       }
 
       // --- ALBUM ---
-      if (msg.startsWith("Album:") || msg.startsWith("Album=") || msg.startsWith("ALBUM="))
+      if (msg.startsWith("Album:") || msg.startsWith("Album=") || msg.startsWith("ALBUM=") || msg.startsWith("album="))
       {
         int sep = msg.indexOf(':');
         if (sep == -1) sep = msg.indexOf('=');
@@ -3114,7 +3312,7 @@ void my_audio_info(Audio::msg_t m)
       }
 
       // --- YEAR ---
-      if (msg.startsWith("Year:") || msg.startsWith("Year=") || msg.startsWith("DATE=") || msg.startsWith("Date="))
+      if (msg.startsWith("Year:") || msg.startsWith("Year=") || msg.startsWith("DATE=") || msg.startsWith("Date=") || msg.startsWith("date="))
       {
         int sep = msg.indexOf(':');
         if (sep == -1) sep = msg.indexOf('=');
@@ -3144,8 +3342,8 @@ void my_audio_info(Audio::msg_t m)
 
     case Audio::evt_icylogo:        Serial.printf("icy logo: ... %s\n", m.msg); break;
     case Audio::evt_icydescription: Serial.printf("icy descr: .. %s\n", m.msg); break;
-    case Audio::evt_image: for(int i = 0; i < m.vec.size(); i += 2){
-                                    Serial.printf("cover image:  segment %02i, pos %07lu, len %05lu\n", i / 2, m.vec[i], m.vec[i + 1]);} break; // APIC
+   // case Audio::evt_image: for(int i = 0; i < m.vec.size(); i += 2){
+   //                                 Serial.printf("cover image:  segment %02i, pos %07lu, len %05lu\n", i / 2, m.vec[i], m.vec[i + 1]);} break; // APIC
     case Audio::evt_lyrics:         Serial.printf("sync lyrics:  %s\n", m.msg); break;
     case Audio::evt_log   :         Serial.printf("audio_logs:   %s\n", m.msg); break;
     default:                        Serial.printf("message:..... %s\n", m.msg); break;
