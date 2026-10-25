@@ -1,6 +1,6 @@
 # 🎧 Internet Radio v3 – ESP32-S3 Internet Radio & Audio Player (IR Remote Controlled)
 
->  **Pełna obsługa radia internetowego i plików audio z karty SD dla ESP32-S3 z wyświetlaczem TFT ILI9488 i DAC PCM5102A.**  
+>  **Pełna obsługa radia internetowego i odtwarzacza plików audio z karty SD dla ESP32-S3 z wyświetlaczem TFT ILI9488 i DAC PCM5102A.**  
 >  **Sterowanie wyłącznie pilotem IR (NEC 38 kHz)** — bez enkoderów i przycisków fizycznych.
 >  **Kartka z kalendarza, która w trybie radia wyświetla cyklicznie w linii informacje o dacie, wschodzie i zachodzie słonca, długości dnia, imieninach.**
 >  **Pogodynka, która w trybie radia wyświetla cyklicznie dane ze swojej lokalizacji - wymagany własny URL z openweathermap.org, pogodynka informuje o aktualnej temperaturze, wilgotności, ciśnieniu, wietrze.**
@@ -13,8 +13,8 @@
 Aby poprawnie uruchomić projekt, wykonaj poniższe kroki:
 
 ### 1️⃣ Zainstaluj Arduino IDE
-- Pobierz i zainstaluj **Arduino IDE w wersji 2.3.6**  
-  🔗 [Pobierz Arduino IDE 2.3.6](https://www.arduino.cc/en/software)
+- Pobierz i zainstaluj **Arduino IDE w wersji 2.3.10**  
+  🔗 [Pobierz Arduino IDE 2.3.10](https://www.arduino.cc/en/software)
 
 ---
 
@@ -26,7 +26,7 @@ https://espressif.github.io/arduino-esp32/package_esp32_index.json
 
 - Następnie przejdź do:  
 `Narzędzia → Płytka → Menedżer płytek`
-- Wyszukaj **esp32** i zainstaluj wersję **3.3.2**
+- Wyszukaj **esp32** i zainstaluj wersję **3.3.12**
 - Ustaw zakres dla pamięci flash:  
 `Narzędzia → Flash Size → 8MB(64Mb)`
 - Ustaw rozmiar partycji:  
@@ -51,7 +51,7 @@ Pobierz plik `.zip`, a następnie:
 
 | Biblioteka | Opis | Instalacja |
 |-------------|------|------------|
-| **ESP32-audioI2S** (v3.4.2) | Odtwarzanie strumieni i plików audio (MP3, FLAC, AAC, OGG) | [GitHub – ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) |
+| **ESP32-audioI2S** (v4.0.0) | Odtwarzanie strumieni i plików audio (MP3, FLAC, AAC, OGG) | [GitHub – ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) |
 | **Adafruit GFX** | Uniwersalna biblioteka graficzna (rysowanie, czcionki) | Menedżer bibliotek |
 | **WiFiManager** | Automatyczne łączenie z Wi-Fi, konfiguracja przez portal | [GitHub – WiFiManager](https://github.com/tzapu/WiFiManager) |
 | **ArduinoJson** | Obsługa plików konfiguracyjnych i danych JSON | Menedżer bibliotek |
