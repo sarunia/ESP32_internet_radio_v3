@@ -334,6 +334,17 @@ String sunset;                         // Godzina zachodu słońca
 String dayLength;                      // Długość dnia
 String namedays;                       // Imieniny przypadające na dany dzień
 
+// Święta i ważne wydarzenia oraz przysłowie dnia
+String holidays;                       // Lista świąt i wydarzeń
+String proverb;                        // Przysłowie na dziś
+
+// Linie przygotowane do wyświetlania w karuzeli
+std::vector<String> holidayLines;
+std::vector<String> proverbLines;
+
+size_t holidayLineIndex = 0;
+size_t proverbLineIndex = 0;
+
 String fileType;                       // Typ pliku (np. MP3, WAV, FLAC)
 String volumeDisplay;                  // Tekst z poziomem głośności (np. "VOL 12")
 
@@ -1553,8 +1564,100 @@ String stripHtmlTags(String html)
   return result;
 }
 
+
+// Dzieli tekst kalendarza na linie mieszczące się na ekranie TFT.
+// Obsługuje również wiele wydarzeń oddzielonych znakiem nowej linii.
+
+void prepareCalendarLines(String text, std::vector<String>& lines)
+{
+  lines.clear();
+
+  text = normalizePolish(text);
+  text.trim();
+
+  while (text.length() > 0)
+  {
+    int newlinePos = text.indexOf('\n');
+    String paragraph;
+
+    if (newlinePos >= 0)
+    {
+      paragraph = text.substring(0, newlinePos);
+      text = text.substring(newlinePos + 1);
+    }
+    else
+    {
+      paragraph = text;
+      text = "";
+    }
+
+    paragraph.trim();
+
+    if (paragraph.length() == 0)
+    {
+      continue;
+    }
+
+    while (paragraph.length() > 0)
+    {
+      String line = paragraph;
+
+      while (line.length() > 0)
+      {
+        int16_t width = 0;
+
+        for (int i = 0; i < line.length(); i++)
+        {
+          uint8_t c = (uint8_t)line[i];
+
+          if (c < FreeSans12pt7b.first ||
+              c > FreeSans12pt7b.last)
+          {
+            continue;
+          }
+
+          GFXglyph *glyph =
+            &FreeSans12pt7b.glyph[c - FreeSans12pt7b.first];
+
+          width += glyph->xAdvance;
+        }
+
+        if (width <= TFT_WIDTH)
+        {
+          break;
+        }
+
+        int lastSpace = line.lastIndexOf(' ');
+
+        if (lastSpace < 0)
+        {
+          break;
+        }
+
+        line = line.substring(0, lastSpace);
+      }
+
+      line.trim();
+
+      if (line.length() == 0)
+      {
+        // Zabezpieczenie przed zapętleniem.
+        break;
+      }
+
+      lines.push_back(line);
+
+      // Usuwamy wyświetloną część akapitu.
+      paragraph = paragraph.substring(line.length());
+      paragraph.trim();
+    }
+  }
+}
+
+
 // Funkcja do pobierania i wyciągania danych kalendarzowych
 // z aktualnej struktury HTML strony kalendarzswiat.pl.
+
 void fetchAndDisplayCalendar()
 {
   if (WiFi.status() != WL_CONNECTED)
@@ -1579,7 +1682,6 @@ void fetchAndDisplayCalendar()
   {
     String payload = http.getString();
 
-    // Sprawdzamy, czy otrzymaliśmy właściwą stronę.
     if (payload.indexOf("day-hero__date") == -1)
     {
       Serial.println("Blad: nie znaleziono nowej struktury kalendarza.");
@@ -1589,28 +1691,16 @@ void fetchAndDisplayCalendar()
 
     // ---------------------------------------------------------
     // 1. DZIEN TYGODNIA
-    // HTML: <p class="day-hero__weekday">Dzisiaj · Niedziela</p>
     // ---------------------------------------------------------
 
-    // Pobranie nazwy dnia tygodnia
     String weekday = getTextByClass(payload, "day-hero__weekday");
 
-    // Wyszukanie separatora bezpośrednio w UTF-8.
-    // Znak "·" w UTF-8 to bajty 0xC2 0xB7.
-    int separator = weekday.lastIndexOf("\xC2\xB7");
+    // Usuwamy początkowy tekst "Dzisiaj · ".
+    int separator = weekday.lastIndexOf(' ');
 
     if (separator != -1)
     {
-      weekday = weekday.substring(separator + 2);
-    }
-    else
-    {
-      // Zabezpieczenie, gdy separator został błędnie zdekodowany.
-      int space = weekday.lastIndexOf(' ');
-      if (space != -1)
-      {
-        weekday = weekday.substring(space + 1);
-      }
+      weekday = weekday.substring(separator + 1);
     }
 
     weekday.trim();
@@ -1625,12 +1715,14 @@ void fetchAndDisplayCalendar()
 
     if (year == "")
     {
-      // Awaryjne pobranie roku z atrybutu data-year.
       int astro = payload.indexOf("id=\"astro-ui-data\"");
+
       if (astro != -1)
       {
-        String fragment = payload.substring(astro,
-                           min((int)payload.length(), astro + 300));
+        String fragment = payload.substring(
+          astro,
+          min((int)payload.length(), astro + 300)
+        );
 
         year = getTextBetween(fragment, "data-year=\"", "\"");
       }
@@ -1640,8 +1732,6 @@ void fetchAndDisplayCalendar()
 
     // ---------------------------------------------------------
     // 3. IMIENINY
-    // HTML: <p class="nameday-groups"> ... </p>
-    // Usuwamy zagnieżdżone znaczniki <a>, <strong> i <span>.
     // ---------------------------------------------------------
 
     String namedayHtml = getTextBetween(
@@ -1654,7 +1744,6 @@ void fetchAndDisplayCalendar()
 
     // ---------------------------------------------------------
     // 4. SWIETA I WAZNE WYDARZENIA
-    // Pobieramy elementy listy z sekcji day-observances.
     // ---------------------------------------------------------
 
     String allHolidays = "";
@@ -1664,75 +1753,102 @@ void fetchAndDisplayCalendar()
     if (holidaySection != -1)
     {
       int listStart = payload.indexOf("<ul>", holidaySection);
-      int listEnd = payload.indexOf("</ul>", listStart);
 
-      if (listStart != -1 && listEnd != -1)
+      if (listStart != -1)
       {
-        String holidayHtml = payload.substring(listStart, listEnd);
+        int listEnd = payload.indexOf("</ul>", listStart);
 
-        int liStart = holidayHtml.indexOf("<li>");
-
-        while (liStart != -1)
+        if (listEnd != -1)
         {
-          int liEnd = holidayHtml.indexOf("</li>", liStart);
+          String holidayHtml = payload.substring(listStart, listEnd);
 
-          if (liEnd == -1) break;
+          int liStart = holidayHtml.indexOf("<li>");
 
-          String item = holidayHtml.substring(liStart, liEnd);
-          String event = "";
-
-          // Nazwa wydarzenia może znajdować się w <a> albo <strong>.
-          int bodyStart = item.indexOf("day-observances__body");
-
-          if (bodyStart != -1)
+          while (liStart != -1)
           {
-            int tagStart = item.indexOf('>', bodyStart);
+            int liEnd = holidayHtml.indexOf("</li>", liStart);
 
-            if (tagStart != -1)
+            if (liEnd == -1)
             {
-              String body = item.substring(tagStart + 1);
+              break;
+            }
 
-              // Usuwamy opis kategorii, np. "Ważna data".
-              int smallStart = body.indexOf("<small");
+            String item = holidayHtml.substring(liStart, liEnd);
+            String event = "";
 
-              if (smallStart != -1)
+            int bodyStart = item.indexOf("day-observances__body");
+
+            if (bodyStart != -1)
+            {
+              int tagStart = item.indexOf('>', bodyStart);
+
+              if (tagStart != -1)
               {
-                body = body.substring(0, smallStart);
+                String body = item.substring(tagStart + 1);
+
+                int smallStart = body.indexOf("<small");
+
+                if (smallStart != -1)
+                {
+                  body = body.substring(0, smallStart);
+                }
+
+                event = stripHtmlTags(body);
+                event.trim();
+              }
+            }
+
+            if (event.length() > 0)
+            {
+              if (allHolidays.length() > 0)
+              {
+                allHolidays += "\n";
               }
 
-              event = stripHtmlTags(body);
-            }
-          }
-
-          if (event.length() > 0)
-          {
-            if (allHolidays.length() > 0)
-            {
-              allHolidays += "\n";
+              allHolidays += event;
             }
 
-            allHolidays += event;
+            liStart = holidayHtml.indexOf("<li>", liEnd + 5);
           }
-
-          liStart = holidayHtml.indexOf("<li>", liEnd + 5);
         }
       }
     }
 
+    // WAŻNE: zapisujemy święta do zmiennej globalnej karuzeli.
+    holidays = allHolidays;
+
     // ---------------------------------------------------------
     // 5. WSCHOD SLONCA
-    // 6. ZACHOD SLONCA
-    // 7. DLUGOSC DNIA
-    // Identyfikatory pozostaly takie same w nowym HTML.
     // ---------------------------------------------------------
 
-    sunrise = getTextBetween(payload, "id=\"sunrise_time\">", "</strong>");
-    sunset = getTextBetween(payload, "id=\"sunset_time\">", "</strong>");
-    dayLength = getTextBetween(payload, "id=\"day_duration\">", "</strong>");
+    sunrise = getTextBetween(
+      payload,
+      "id=\"sunrise_time\">",
+      "</strong>"
+    );
+
+    // ---------------------------------------------------------
+    // 6. ZACHOD SLONCA
+    // ---------------------------------------------------------
+
+    sunset = getTextBetween(
+      payload,
+      "id=\"sunset_time\">",
+      "</strong>"
+    );
+
+    // ---------------------------------------------------------
+    // 7. DLUGOSC DNIA
+    // ---------------------------------------------------------
+
+    dayLength = getTextBetween(
+      payload,
+      "id=\"day_duration\">",
+      "</strong>"
+    );
 
     // ---------------------------------------------------------
     // 8. PRZYSLOWIE DNIA
-    // Nowa strona używa sekcji day-proverbs i znacznika blockquote.
     // ---------------------------------------------------------
 
     String allProverbs = "";
@@ -1742,21 +1858,36 @@ void fetchAndDisplayCalendar()
     if (proverbSection != -1)
     {
       int quoteStart = payload.indexOf("<blockquote>", proverbSection);
-      int quoteEnd = payload.indexOf("</blockquote>", quoteStart);
 
-      if (quoteStart != -1 && quoteEnd != -1)
+      if (quoteStart != -1)
       {
-        String proverbHtml = payload.substring(
-          quoteStart + String("<blockquote>").length(),
-          quoteEnd
-        );
+        int quoteEnd = payload.indexOf("</blockquote>", quoteStart);
 
-        allProverbs = stripHtmlTags(proverbHtml);
+        if (quoteEnd != -1)
+        {
+          String proverbHtml = payload.substring(
+            quoteStart + String("<blockquote>").length(),
+            quoteEnd
+          );
+
+          allProverbs = stripHtmlTags(proverbHtml);
+          allProverbs.trim();
+        }
       }
     }
 
+    // WAŻNE: zapisujemy przysłowie do zmiennej globalnej karuzeli.
+    proverb = allProverbs;
+
+    // Nowe dane wymagają ponownego przygotowania linii.
+    holidayLines.clear();
+    proverbLines.clear();
+
+    holidayLineIndex = 0;
+    proverbLineIndex = 0;
+
     // ---------------------------------------------------------
-    // 9. DIAGNOSTYKA W MONITORZE SZEREGOWYM
+    // 9. DIAGNOSTYKA SERIAL
     // ---------------------------------------------------------
 
     Serial.println();
@@ -1768,13 +1899,13 @@ void fetchAndDisplayCalendar()
     Serial.println("Imieniny: " + namedays);
 
     Serial.println("Swieta i wazne wydarzenia:");
-    Serial.println(allHolidays);
+    Serial.println(holidays);
 
     Serial.println("Przyslowie na dzis:");
-    Serial.println(allProverbs);
+    Serial.println(proverb);
+
     Serial.println("============================");
 
-    // Informujemy istniejący interfejs, że dane zostały pobrane.
     displayActive = true;
     displayStartTime = millis();
   }
@@ -1784,9 +1915,9 @@ void fetchAndDisplayCalendar()
     Serial.println(httpResponseCode);
   }
 
-  // Zawsze zamykamy połączenie HTTP.
   http.end();
 }
+
 
 
 String normalizePolish(String s)
@@ -2493,7 +2624,7 @@ void displayStations()
 
     // Kolor w zależności od zaznaczenia
     if (i == currentSelection)
-      canvas.setTextColor(COLOR_CYAN);
+      canvas.setTextColor(COLOR_RED);
     else
       canvas.setTextColor(COLOR_LIME);
 
@@ -2767,94 +2898,211 @@ void switchWeatherData()
 }
 
 
-// Funkcja do przełączania karuzeli kalendarza
+// Funkcja do przełączania karuzeli kalendarza.
+// Kolejność: data -> wschód/zachód -> długość dnia ->
+// imieniny -> święta i wydarzenia -> przysłowie.
 void showCalendarCarousel()
 {
-  unsigned long now = millis();                               // Pobiera aktualny czas systemowy w milisekundach
-  unsigned long interval = (messageIndex == 3) ? 5000 : 10000; // Krótszy czas (5s) dla imienin, 10s dla pozostałych komunikatów
+  unsigned long now = millis();
 
-  if (now - lastSwitchCalendar > interval)                    // Sprawdza, czy upłynął czas na zmianę komunikatu
+  unsigned long interval = (messageIndex >= 3) ? 5000 : 10000;
+
+  if (now - lastSwitchCalendar <= interval)
   {
-    lastSwitchCalendar = now;                                 // Aktualizuje czas ostatniej zmiany
+    return;
+  }
 
-    // Czyścimy obszar kalendarza (160–200)
-    canvas.fillRect(0, 160, TFT_WIDTH, 40, COLOR_BLACK);      // Czyszczenie prostokątnego obszaru ekranu przed wyświetleniem nowego tekstu
+  lastSwitchCalendar = now;
 
-    String msg;                                                // Bufor na wiadomość do wyświetlenia
+  canvas.fillRect(0, 160, TFT_WIDTH, 40, COLOR_BLACK);
 
-    if (messageIndex == 0)
+  String msg = "";
+
+  // ---------------------------------------------------------
+  // 0. DATA
+  // ---------------------------------------------------------
+
+  if (messageIndex == 0)
+  {
+    msg = normalizePolish("Dziś jest " + calendar + " r");
+    messageIndex = 1;
+  }
+
+  // ---------------------------------------------------------
+  // 1. WSCHÓD I ZACHÓD SŁOŃCA
+  // ---------------------------------------------------------
+
+  else if (messageIndex == 1)
+  {
+    msg = normalizePolish(
+      "Wschód Słońca " + sunrise +
+      "  Zachód Słońca " + sunset
+    );
+
+    messageIndex = 2;
+  }
+
+  // ---------------------------------------------------------
+  // 2. DŁUGOŚĆ DNIA
+  // ---------------------------------------------------------
+
+  else if (messageIndex == 2)
+  {
+    msg = normalizePolish("Długość dnia " + dayLength);
+    messageIndex = 3;
+  }
+
+  // ---------------------------------------------------------
+  // 3. IMIENINY
+  // ---------------------------------------------------------
+
+  else if (messageIndex == 3)
+  {
+    if (namedayLines.empty())
     {
-      //calendar = normalizePolish(calendar);                   // Zamienia polskie znaki diakrytyczne na poprawne
-      msg = "Dziś jest " + calendar + " r";                   // Tworzy komunikat z datą
-      msg = normalizePolish(msg);
-      messageIndex++;                                         // Przechodzi do następnego etapu karuzeli
-    }
-    else if (messageIndex == 1)
-    {
-      msg = "Wschód Słońca " + sunrise + "  Zachód Słońca " + sunset; // Komunikat o wschodzie i zachodzie Słońca
-      msg = normalizePolish(msg);
-      messageIndex++;
-    }
-    else if (messageIndex == 2)
-    {
-      msg = "Długość dnia " + dayLength;                      // Komunikat o długości dnia
-      msg = normalizePolish(msg);
-      messageIndex++;
-    }
-    else if (messageIndex == 3)
-    {
-      if (namedayLines.empty())                               // Jeśli imieniny nie zostały jeszcze przetworzone na linie
+      String tekst = normalizePolish("IMIENINY: " + namedays);
+      String tmp = tekst;
+
+      while (tmp.length() > 0)
       {
-        String tekst = "IMIENINY: " + namedays;               // Tworzy tekst imienin
-        tekst = normalizePolish(tekst);                       // Ujednolica polskie znaki
+        String line = tmp;
 
-        String tmp = tekst;                                   // Tymczasowa kopia tekstu do podziału na linie
-        while (tmp.length() > 0)                              // Dopóki coś zostało do przetworzenia
+        while (line.length() > 0)
         {
-          String line = tmp;                                  // Początkowo całość traktujemy jako jedną linię
-          while (line.length() > 0)
+          int16_t width = 0;
+
+          for (int i = 0; i < line.length(); i++)
           {
-            int16_t w = 0;                                    // Szerokość tekstu w pikselach
-            for (int i = 0; i < line.length(); i++)           // Obliczanie szerokości tekstu znak po znaku
+            uint8_t c = (uint8_t)line[i];
+
+            if (c < FreeSans12pt7b.first ||
+                c > FreeSans12pt7b.last)
             {
-              char c = line[i];
-              if (c < FreeSans12pt7b.first || c > FreeSans12pt7b.last) continue; // Pomija znaki spoza zakresu czcionki
-              GFXglyph *glyph = &FreeSans12pt7b.glyph[c - FreeSans12pt7b.first]; // Pobiera metryki znaku
-              w += glyph->xAdvance;                           // Sumuje szerokość znaku
+              continue;
             }
-            if (w <= 480) break;                              // Jeśli linia mieści się w szerokości ekranu – OK
-            int lastSpace = line.lastIndexOf(' ');            // Szuka ostatniej spacji do złamania linii
-            if (lastSpace < 0) break;                         // Jeśli brak spacji, przerwij (tekst za długi bez przerw)
-            line = line.substring(0, lastSpace);              // Ucina tekst do ostatniej spacji, by nie przekroczyć szerokości
+
+            GFXglyph *glyph =
+              &FreeSans12pt7b.glyph[c - FreeSans12pt7b.first];
+
+            width += glyph->xAdvance;
           }
-          namedayLines.push_back(line);                       // Dodaje gotową linię do listy
-          tmp = tmp.substring(line.length());                 // Usuwa przetworzoną część z tekstu
-          tmp.trim();                                         // Usuwa spacje z początku i końca
+
+          if (width <= TFT_WIDTH)
+          {
+            break;
+          }
+
+          int lastSpace = line.lastIndexOf(' ');
+
+          if (lastSpace < 0)
+          {
+            break;
+          }
+
+          line = line.substring(0, lastSpace);
         }
-        namedayLineIndex = 0;                                 // Resetuje indeks linii do wyświetlenia
+
+        line.trim();
+
+        if (line.length() == 0)
+        {
+          break;
+        }
+
+        namedayLines.push_back(line);
+
+        tmp = tmp.substring(line.length());
+        tmp.trim();
       }
 
-      if (namedayLineIndex < namedayLines.size())              // Jeśli są jeszcze linie imienin do pokazania
-      {
-        msg = namedayLines[namedayLineIndex];                  // Pobiera bieżącą linię
-        namedayLineIndex++;                                   // Przechodzi do następnej
-      } 
-      else                                                    // Jeśli wszystkie linie zostały pokazane
-      {
-        namedayLines.clear();                                 // Czyści wektor linii imienin
-        namedayLineIndex = 0;                                 // Resetuje indeks
-        messageIndex = 0;                                     // Wraca na początek karuzeli (cykl od nowa)
-      }
+      namedayLineIndex = 0;
     }
 
-    // Rysowanie tekstu w obszarze kalendarza
-    if (msg.length() > 0)                                    // Jeśli mamy tekst do pokazania
+    if (namedayLineIndex < namedayLines.size())
     {
-      canvas.setFont(&FreeSans12pt7b);                       // Ustawia czcionkę
-      canvas.setTextColor(COLOR_DEEPPINK);                   // Kolor tekstu
-      canvas.setCursor(0, 190);                              // Ustawia pozycję startową tekstu
-      canvas.print(msg);                                     // Wyświetla wiadomość
+      msg = namedayLines[namedayLineIndex];
+      namedayLineIndex++;
     }
+    else
+    {
+      namedayLines.clear();
+      namedayLineIndex = 0;
+
+      // Przechodzimy do świąt.
+      messageIndex = 4;
+      lastSwitchCalendar = millis() - 5000;
+      return;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 4. ŚWIĘTA I WAŻNE WYDARZENIA
+  // ---------------------------------------------------------
+
+  else if (messageIndex == 4)
+  {
+    if (holidayLines.empty())
+    {
+      prepareCalendarLines(holidays, holidayLines);
+      holidayLineIndex = 0;
+    }
+
+    if (holidayLineIndex < holidayLines.size())
+    {
+      msg = holidayLines[holidayLineIndex];
+      holidayLineIndex++;
+    }
+    else
+    {
+      holidayLines.clear();
+      holidayLineIndex = 0;
+
+      // Przechodzimy do przysłowia.
+      messageIndex = 5;
+      lastSwitchCalendar = millis() - 5000;
+      return;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 5. PRZYSŁOWIE NA DZIŚ
+  // ---------------------------------------------------------
+
+  else if (messageIndex == 5)
+  {
+    if (proverbLines.empty())
+    {
+      prepareCalendarLines(proverb, proverbLines);
+      proverbLineIndex = 0;
+    }
+
+    if (proverbLineIndex < proverbLines.size())
+    {
+      msg = proverbLines[proverbLineIndex];
+      proverbLineIndex++;
+    }
+    else
+    {
+      proverbLines.clear();
+      proverbLineIndex = 0;
+
+      // Powrót do początku karuzeli.
+      messageIndex = 0;
+      lastSwitchCalendar = millis() - 10000;
+      return;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // RYSOWANIE TEKSTU
+  // ---------------------------------------------------------
+
+  if (msg.length() > 0)
+  {
+    canvas.setFont(&FreeSans12pt7b);
+    canvas.setTextColor(COLOR_DEEPPINK);
+    canvas.setCursor(0, 190);
+    canvas.print(msg);
   }
 }
 
@@ -3021,51 +3269,6 @@ void my_audio_info(Audio::msg_t m)
       String msg = String(m.msg);   // zamiana na String
       msg.trim(); // usuń spacje i \r\n
 
-      // --- BitRate ---
-      //int bitrateIndex = msg.indexOf("BitRate:");
-      /*int bitrateIndex = msg.indexOf("Bitrate (b/s):");
-      if (bitrateIndex != -1)
-      {
-        int endIndex = msg.indexOf('\n', bitrateIndex);
-        if (endIndex == -1) endIndex = msg.length();
-
-        //bitrateString = msg.substring(bitrateIndex + 8, endIndex); 
-        bitrateString = msg.substring(bitrateIndex + 14, endIndex);
-        bitrateString.trim();
-
-        if (currentOption == PLAY_FILES && audio.isRunning())
-        {
-          displayPlayer();
-          calculateAudioDuration();
-        }
-        if (currentOption == INTERNET_RADIO && audio.isRunning())
-        {
-          displayRadio();
-        }
-      }
-
-      // --- estimated bitrate ---
-      int est_bitrateIndex = msg.indexOf("estimated bitrate (b/s):");
-      if (est_bitrateIndex != -1)
-      {
-        int endIndex = msg.indexOf('\n', est_bitrateIndex);
-        if (endIndex == -1) endIndex = msg.length(); 
-
-        bitrateString = msg.substring(est_bitrateIndex + 24, endIndex);
-        bitrateString.trim();
-
-        if (currentOption == PLAY_FILES && audio.isRunning())
-        {
-          displayPlayer();
-          calculateAudioDuration();
-        }
-        if (currentOption == INTERNET_RADIO && audio.isRunning())
-        {
-          displayRadio();
-        }
-      }*/
-
-
       // --- SampleRate ---
       //int sampleRateIndex = msg.indexOf("SampleRate:");
       int sampleRateIndex = msg.indexOf("SampleRate (Hz):");
@@ -3187,11 +3390,14 @@ void my_audio_info(Audio::msg_t m)
       if (unknowContent != -1)
       {
         audio.stopSong();
-        canvas.fillRect(0, 35, 480, 220, COLOR_BLACK);
+        //canvas.fillRect(0, 35, 480, 220, COLOR_BLACK);
+        canvas.fillRect(0, 40, 480, 120, COLOR_BLACK);
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_PINK);
         canvas.setCursor(0, 70);
-        canvas.print("Nieznana zawartosc linku");
+        String header = "Nieznana zawartość linku";
+        header = normalizePolish(header);
+        canvas.print(header);
         tft_pushCanvas(canvas);
       }
 
@@ -3199,7 +3405,8 @@ void my_audio_info(Audio::msg_t m)
       int connectTo = msg.indexOf("connect to:");
       if (connectTo != -1)
       {
-        canvas.fillRect(0, 40, 480, 220, COLOR_BLACK);
+        //canvas.fillRect(0, 40, 480, 220, COLOR_BLACK);
+        canvas.fillRect(0, 40, 480, 120, COLOR_BLACK);
         canvas.setFont(&FreeSans12pt7b);
         canvas.setTextColor(COLOR_PINK);
         canvas.setCursor(0, 70);
